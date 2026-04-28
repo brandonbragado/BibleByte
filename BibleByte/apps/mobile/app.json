@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "BibleByte",
+    "slug": "biblebites",
+    "scheme": "biblebites",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-asset"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.biblebites.mobile",
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "com.biblebites.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
