@@ -1,16 +1,43 @@
 import { PenLine } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { JournalEntryCreateForm } from "@/components/journal/journal-entry-create-form";
+import { JournalEntryList } from "@/components/journal/journal-entry-list";
+import { PrayerCreateForm } from "@/components/journal/prayer-create-form";
+import { PrayerList } from "@/components/journal/prayer-list";
+import { createClient } from "@/lib/supabase/server";
+import type { JournalEntryRow, PrayerRow } from "@/types/journal";
 
-export default function JournalPage() {
+export default async function JournalPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let prayers: PrayerRow[] = [];
+  let entries: JournalEntryRow[] = [];
+
+  if (user?.id) {
+    const [prRes, jrRes] = await Promise.all([
+      supabase
+        .from("prayers")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(80),
+      supabase
+        .from("journal_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(80),
+    ]);
+
+    prayers = (prRes.data ?? []) as PrayerRow[];
+    entries = (jrRes.data ?? []) as JournalEntryRow[];
+  }
+
   return (
-    <div className="space-y-6 pb-8 pt-4">
+    <div className="space-y-10 pb-10 pt-4">
       <header className="flex items-start gap-3">
         <div className="rounded-2xl bg-primary/12 p-3 text-primary">
           <PenLine className="size-7" strokeWidth={1.75} />
@@ -23,31 +50,20 @@ export default function JournalPage() {
             Prayer & reflection
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Prayer requests with Asked → Waiting → Answered, plus reflections and gratitude streams—wired in Phase 3.
+            Prayers persist with lifecycle states; reflections capture gratitude and insights alongside your rhythm on Home.
           </p>
         </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-primary/12 shadow-soft">
-          <CardHeader>
-            <CardTitle className="font-display text-lg">Prayer journal</CardTitle>
-            <CardDescription>Requests, notes, answered milestones.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-36 rounded-xl bg-muted/70 ring-1 ring-border/60" />
-          </CardContent>
-        </Card>
-        <Card className="border-primary/12 shadow-soft">
-          <CardHeader>
-            <CardTitle className="font-display text-lg">Reflection journal</CardTitle>
-            <CardDescription>Daily reflections & gratitude.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-36 rounded-xl bg-muted/70 ring-1 ring-border/60" />
-          </CardContent>
-        </Card>
-      </div>
+      <section className="space-y-6">
+        <PrayerCreateForm />
+        <PrayerList prayers={prayers} />
+      </section>
+
+      <section className="space-y-6">
+        <JournalEntryCreateForm />
+        <JournalEntryList entries={entries} />
+      </section>
     </div>
   );
 }

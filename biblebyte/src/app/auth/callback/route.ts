@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+function safeAppPath(next: string | null): string {
+  const raw = next?.trim() || "/home";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/home";
+  return raw;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/home";
+  const next = safeAppPath(url.searchParams.get("next"));
 
   const cookieStore = await cookies();
 
@@ -30,6 +36,6 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  const redirectUrl = new URL(next.startsWith("/") ? next : `/${next}`, url.origin);
+  const redirectUrl = new URL(next, url.origin);
   return NextResponse.redirect(redirectUrl);
 }

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/(main)/settings/actions";
+import { DeleteAccountSection } from "@/components/settings/delete-account-section";
+import { PreferencesCard } from "@/components/settings/preferences-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,16 +24,20 @@ export default function SettingsPage() {
           Preferences & privacy
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          Theme, notifications, translation preference (with licensing posture), AI memory consent,
-          exports, and account controls ship incrementally—foundation routes stay tidy here.
+          {/* TODO[NIV_LICENSE]: Surfacing publisher attribution */}
+          Manage reminders, analytics consent, and snippet payloads—native Expo builds extend this shell.
         </p>
       </header>
+
+      <PreferencesCard />
+
+      <DeleteAccountSection />
 
       <Card className="border-primary/12 shadow-soft">
         <CardHeader>
           <CardTitle className="font-display text-xl">Privacy</CardTitle>
           <CardDescription>
-            AI memory toggles and analytics consent connect to Supabase policies—see README for rollout notes.
+            Scripture placeholders remain licensing-safe until publisher workflows clear—never paste copyrighted text without clearance.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

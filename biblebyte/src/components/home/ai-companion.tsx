@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
+import { sendCompanionMessage } from "@/app/(main)/home/companion-actions";
+import type { CompanionMessageRow } from "@/app/(main)/home/companion-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import type { CompanionAssistantContent, CompanionBlocks, CompanionUserContent } from "@/types/companion";
 
 const chips = [
   "Anxiety",
@@ -30,39 +33,79 @@ const suggestions = [
   "Help me trust God",
 ];
 
-type ChatBlock = {
-  understanding: string;
-  scripture: string;
-  application: string;
-  prayer: string;
+function isUserContent(c: unknown): c is CompanionUserContent {
+  return (
+    typeof c === "object" &&
+    c !== null &&
+    (c as CompanionUserContent).kind === "user_text" &&
+    typeof (c as CompanionUserContent).text === "string"
+  );
+}
+
+function isAssistantContent(c: unknown): c is CompanionAssistantContent {
+  return (
+    typeof c === "object" &&
+    c !== null &&
+    (c as CompanionAssistantContent).kind === "structured" &&
+    typeof (c as CompanionAssistantContent).blocks === "object"
+  );
+}
+
+function BlockReply({ reply }: { reply: CompanionBlocks }) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/70 bg-background/90 p-4 text-sm leading-relaxed shadow-inner">
+      <section>
+        <h4 className="font-semibold text-primary">Understanding</h4>
+        <p className="mt-1 text-muted-foreground">{reply.understanding}</p>
+      </section>
+      <section>
+        <h4 className="font-semibold text-primary">Scripture</h4>
+        <p className="mt-1 text-muted-foreground">{reply.scripture}</p>
+      </section>
+      <section>
+        <h4 className="font-semibold text-primary">Life application</h4>
+        <p className="mt-1 text-muted-foreground">{reply.application}</p>
+      </section>
+      <section>
+        <h4 className="font-semibold text-primary">Prayer prompt</h4>
+        <p className="mt-1 text-muted-foreground">{reply.prayer}</p>
+      </section>
+    </div>
+  );
+}
+
+type Props = {
+  sessionId: string | null;
+  messages: CompanionMessageRow[];
 };
 
-export function AiCompanionCard() {
+export function AiCompanionCard({ sessionId, messages }: Props) {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [reply, setReply] = useState<ChatBlock | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   async function submit(custom?: string) {
     const text = (custom ?? prompt).trim();
-    if (!text) {
+    if (!text || !sessionId) {
       return;
     }
     setLoading(true);
-    setReply(null);
+    setError(null);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Request failed");
+      const result = await sendCompanionMessage(sessionId, text);
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
-      setReply(data.blocks as ChatBlock);
+      setPrompt("");
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (e) {
       console.error(e);
-      alert("Something went wrong. Try again shortly.");
+      setError("Something went wrong. Try again shortly.");
     } finally {
       setLoading(false);
     }
@@ -80,9 +123,46 @@ export function AiCompanionCard() {
         </CardTitle>
         <CardDescription className="text-base leading-relaxed">
           Grounded in scripture, generous in tone—never claiming revelation, never replacing pastors or counselors.
+          Replies persist to this device while you are signed in.
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">
+        {!sessionId && (
+          <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Companion session could not start. Confirm Supabase migrations (including chat tables) are applied, then refresh.
+          </p>
+        )}
+
+        {messages.length > 0 && (
+          <div className="max-h-[min(360px,50vh)] space-y-3 overflow-y-auto rounded-2xl border border-border/60 bg-muted/25 p-3">
+            {messages.map((m) => {
+              if (m.role === "user" && isUserContent(m.content)) {
+                return (
+                  <div
+                    key={m.id}
+                    className="ml-4 rounded-xl border border-primary/15 bg-background/90 px-3 py-2 text-sm text-foreground"
+                  >
+                    {m.content.text}
+                  </div>
+                );
+              }
+              if (m.role === "assistant" && isAssistantContent(m.content)) {
+                return (
+                  <div key={m.id} className="space-y-1">
+                    {m.content.demo && (
+                      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                        Demo reply (configure OPENAI_API_KEY for live model)
+                      </p>
+                    )}
+                    <BlockReply reply={m.content.blocks} />
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => (
             <button
@@ -103,12 +183,13 @@ export function AiCompanionCard() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="min-h-[96px] bg-background/90"
+          disabled={loading || !sessionId}
         />
 
         <Button
           type="button"
           className="w-full"
-          disabled={loading || !prompt.trim()}
+          disabled={loading || !prompt.trim() || !sessionId}
           onClick={() => submit()}
         >
           {loading ? "Listening…" : "Ask BibleByte"}
@@ -123,36 +204,18 @@ export function AiCompanionCard() {
                 setPrompt(s);
                 void submit(s);
               }}
-              className="rounded-xl bg-muted/80 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              disabled={loading || !sessionId}
+              className="rounded-xl bg-muted/80 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
             >
               {s}
             </button>
           ))}
         </div>
 
-        {reply && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4 rounded-2xl border border-border/70 bg-background/90 p-5 text-sm leading-relaxed shadow-inner"
-          >
-            <section>
-              <h4 className="font-semibold text-primary">Understanding</h4>
-              <p className="mt-1 text-muted-foreground">{reply.understanding}</p>
-            </section>
-            <section>
-              <h4 className="font-semibold text-primary">Scripture</h4>
-              <p className="mt-1 text-muted-foreground">{reply.scripture}</p>
-            </section>
-            <section>
-              <h4 className="font-semibold text-primary">Life application</h4>
-              <p className="mt-1 text-muted-foreground">{reply.application}</p>
-            </section>
-            <section>
-              <h4 className="font-semibold text-primary">Prayer prompt</h4>
-              <p className="mt-1 text-muted-foreground">{reply.prayer}</p>
-            </section>
-          </motion.div>
+        {error && (
+          <p className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
         )}
       </CardContent>
     </Card>

@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:migrations": "node scripts/verify-migrations.mjs",
+    "verify:schema": "node scripts/verify-supabase-schema.mjs",
+    "verify:api-bible": "node scripts/verify-api-bible.mjs",
+    "verify:all": "npm run verify:migrations && npm run verify:schema",
+    "test:unit": "vitest run",
+    "test": "npm run verify:migrations && npm run test:unit"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -34,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

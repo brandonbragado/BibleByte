@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - "biblebyte/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "biblebyte/**"
+      - ".github/workflows/ci.yml"
+
+defaults:
+  run:
+    working-directory: biblebyte
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: biblebyte/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run verify:migrations
+      - run: npm run test:unit
