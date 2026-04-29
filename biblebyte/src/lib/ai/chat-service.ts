@@ -16,6 +16,7 @@ import {
   AI_CHAT_HISTORY_LIMIT,
   AI_CHAT_MAX_MESSAGE_CHARS,
   isLikelyUuid,
+  normalizeOpenAiApiKeyFromEnv,
   sanitizeChatInput,
 } from "@/lib/ai/safety";
 import type { AiChatApiResponse, AiChatMessageDto, AiChatMessageRow } from "@/lib/ai/types";
@@ -84,7 +85,7 @@ async function completeAssistantReply(
   systemPrompt: string,
   turns: ChatCompletionMessageParam[]
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = normalizeOpenAiApiKeyFromEnv(process.env.OPENAI_API_KEY);
   if (!apiKey) {
     throw new ChatServiceError("AI is not configured (OPENAI_API_KEY).", 503, "ai_not_configured");
   }
@@ -120,7 +121,7 @@ async function completeAssistantReply(
     if (e instanceof AuthenticationError) {
       console.error(e);
       throw new ChatServiceError(
-        "OpenAI rejected the API key (401). Create a new secret key at platform.openai.com and set OPENAI_API_KEY in .env.local, then restart the dev server.",
+        "OpenAI rejected the API key (401). Confirm OPENAI_API_KEY in .env.local has no quotes or spaces, starts with sk-, matches platform.openai.com, then restart npm run dev.",
         503,
         "openai_invalid_key"
       );

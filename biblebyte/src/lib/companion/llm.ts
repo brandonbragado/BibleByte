@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
+import { normalizeOpenAiApiKeyFromEnv } from "@/lib/ai/safety";
 import { COMPANION_SYSTEM_PROMPT } from "@/lib/companion/system-prompt";
 import type { CompanionBlocks } from "@/types/companion";
 
@@ -44,7 +45,7 @@ export async function generateCompanionBlocks(
     return { blocks: PLACEHOLDER, demo: true };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = normalizeOpenAiApiKeyFromEnv(process.env.OPENAI_API_KEY);
 
   if (!apiKey) {
     return {

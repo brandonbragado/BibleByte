@@ -27,3 +27,19 @@ export function isLikelyUuid(value: string): boolean {
     value.trim()
   );
 }
+
+/**
+ * Trim and strip one pair of surrounding quotes from env values.
+ * `OPENAI_API_KEY="sk-…"` is parsed with quotes included and breaks auth (401).
+ */
+export function normalizeOpenAiApiKeyFromEnv(raw: string | undefined | null): string | undefined {
+  if (raw == null) return undefined;
+  let s = String(raw).trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s || undefined;
+}
