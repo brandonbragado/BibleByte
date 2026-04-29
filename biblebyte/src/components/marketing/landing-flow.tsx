@@ -7,7 +7,11 @@ import { ThemeModeSelect } from "@/components/theme-mode-select";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
-export function LandingFlow() {
+type Props = {
+  nextPath?: string;
+};
+
+export function LandingFlow({ nextPath = "/home" }: Props) {
   const reduceMotion = useReducedMotion();
   const instant = reduceMotion ? true : false;
 
@@ -122,7 +126,7 @@ export function LandingFlow() {
             ease: easeOut,
           }}
         >
-          <SignInCard nextPath="/home" selfAnimateOAuth={false} />
+          <SignInCard nextPath={nextPath} selfAnimateOAuth={false} />
         </motion.div>
 
         <motion.p

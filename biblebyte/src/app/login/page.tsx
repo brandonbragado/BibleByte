@@ -1,4 +1,4 @@
-import { LoginEntrance } from "@/components/auth/login-entrance";
+import { LandingFlow } from "@/components/marketing/landing-flow";
 
 type Props = {
   searchParams: Promise<{ next?: string }>;
@@ -8,5 +8,5 @@ export default async function LoginPage({ searchParams }: Props) {
   const params = await searchParams;
   const nextPath = params.next ?? "/home";
 
-  return <LoginEntrance nextPath={nextPath} />;
+  return <LandingFlow nextPath={nextPath} />;
 }
