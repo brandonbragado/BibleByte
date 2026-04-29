@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 
+import { ThemeProvider } from "@/components/theme-provider";
+
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -35,10 +37,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${plusJakarta.variable} ${cormorant.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full bg-background font-sans text-foreground">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

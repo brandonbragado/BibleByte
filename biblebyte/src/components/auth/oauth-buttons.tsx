@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -9,23 +10,53 @@ type Props = {
 };
 
 export function OAuthButtons({ nextPath = "/home" }: Props) {
-  const [pending, setPending] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function signIn(provider: "google" | "apple") {
+  async function signInWithGoogle() {
+    setError(null);
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+    if (!url || !anon) {
+      setError(
+        "Supabase env vars are missing. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then restart the dev server."
+      );
+      return;
+    }
+
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-    setPending(provider);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo,
-        skipBrowserRedirect: false,
-      },
-    });
-    setPending(null);
-    if (error) {
-      console.error(error.message);
-      alert(`Could not start ${provider} sign-in. Check Supabase OAuth configuration.`);
+    setPending(true);
+
+    try {
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (oauthError) {
+        console.error(oauthError);
+        setError(oauthError.message);
+        return;
+      }
+
+      if (!data?.url) {
+        setError(
+          "Supabase did not return a login URL. In the dashboard: Authentication → Providers — enable Google and under URL Configuration allow this callback (e.g. http://localhost:3000/auth/callback**)."
+        );
+        return;
+      }
+
+      window.location.assign(data.url);
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : "Could not start sign-in.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -35,22 +66,21 @@ export function OAuthButtons({ nextPath = "/home" }: Props) {
         type="button"
         variant="default"
         className="w-full"
-        disabled={pending !== null}
-        onClick={() => signIn("google")}
+        disabled={pending}
+        onClick={() => void signInWithGoogle()}
       >
-        {pending === "google" ? "Opening Google…" : "Continue with Google"}
+        {pending ? "Opening Google…" : "Continue with Google"}
       </Button>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full border-primary/25 bg-background/70"
-        disabled={pending !== null}
-        onClick={() => signIn("apple")}
-      >
-        {pending === "apple" ? "Opening Apple…" : "Continue with Apple"}
-      </Button>
+      {error && (
+        <p
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-[12px] leading-snug text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-        Secure authentication powered by Supabase. Apple Sign In availability depends on your platform and Supabase provider setup.
+        Secure authentication powered by Supabase.
       </p>
     </div>
   );

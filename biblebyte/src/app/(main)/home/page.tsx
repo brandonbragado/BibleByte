@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { AICompanionCard } from "@/components/ai/AICompanionCard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { DailyVerseCard, type LiveDailyScripture } from "@/components/home/daily-verse-card";
 import { HomeGreeting } from "@/components/home/home-greeting";
+import { HomePageEntrance } from "@/components/home/home-page-entrance";
 import {
   getScriptureProviderMode,
   homeDailyVerseUseScriptureApi,
@@ -31,7 +31,14 @@ function wallClockLabel(raw: unknown): string | null {
   return s.slice(0, 5);
 }
 
-export default async function HomePage() {
+type Props = {
+  searchParams: Promise<{ welcome?: string }>;
+};
+
+export default async function HomePage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const playWelcomeEntrance = sp.welcome === "1";
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,13 +47,12 @@ export default async function HomePage() {
   const { data: profile } = await supabase
     .from("user_profiles")
     .select(
-      "display_name, first_name, spiritual_tags, reminder_enabled, reminder_wall_time"
+      "display_name, first_name, reminder_enabled, reminder_wall_time"
     )
     .maybeSingle();
 
   const displayFirst = resolveGreetingFirstName(profile, user?.email);
 
-  const tags: string[] = profile?.spiritual_tags ?? [];
   const reminderWall = wallClockLabel(profile?.reminder_wall_time);
 
   const entryDate = utcTodayIsoDate();
@@ -159,7 +165,7 @@ export default async function HomePage() {
         : "Sign in to bookmark chapters and tune reminders.";
 
   return (
-    <div className="space-y-10 pb-8 pt-4">
+    <HomePageEntrance playSlowEntrance={playWelcomeEntrance}>
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
           Today{" "}
@@ -171,15 +177,6 @@ export default async function HomePage() {
         <p className="max-w-2xl text-base leading-relaxed text-muted-foreground lg:max-w-3xl lg:text-lg lg:leading-relaxed">
           Everything here is tuned toward calm guidance—scripture first, kindness always.
         </p>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {tags.slice(0, 6).map((t) => (
-              <Badge key={t} variant="sage">
-                {t.replace(/^[^:]+:/, "").replace(/_/g, " ")}
-              </Badge>
-            ))}
-          </div>
-        )}
       </header>
 
       <DailyVerseCard verse={dailyVerse} liveScripture={liveDailyScripture} />
@@ -249,6 +246,6 @@ export default async function HomePage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </HomePageEntrance>
   );
 }

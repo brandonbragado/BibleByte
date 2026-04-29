@@ -37,5 +37,10 @@ export async function GET(request: Request) {
   }
 
   const redirectUrl = new URL(next, url.origin);
+  // Gentle home entrance after OAuth (see HomePageEntrance).
+  if (code && redirectUrl.pathname === "/home") {
+    redirectUrl.searchParams.set("welcome", "1");
+  }
+
   return NextResponse.redirect(redirectUrl);
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { ProfileIdentityForm } from "@/components/profile/profile-identity-form";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -42,9 +43,11 @@ export default async function ProfilePage() {
 
   const { data: profileRow } = await supabase
     .from("user_profiles")
-    .select("first_name, last_name, phone")
+    .select("first_name, last_name, phone, spiritual_tags")
     .eq("id", user.id)
     .maybeSingle();
+
+  const spiritualTags: string[] = profileRow?.spiritual_tags ?? [];
 
   const tiles = [
     {
@@ -93,6 +96,28 @@ export default async function ProfilePage() {
         lastName={profileRow?.last_name ?? ""}
         phone={profileRow?.phone ?? ""}
       />
+
+      <Card className="border-primary/12 shadow-soft">
+        <CardHeader>
+          <CardTitle className="font-display text-xl">Spiritual focus</CardTitle>
+          <CardDescription>Preferences from your onboarding—they personalize your experience.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {spiritualTags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {spiritualTags.slice(0, 12).map((t) => (
+                <Badge key={t} variant="sage">
+                  {t.replace(/^[^:]+:/, "").replace(/_/g, " ")}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No tags yet—they are added when you complete onboarding.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/12 shadow-soft">
         <CardHeader>

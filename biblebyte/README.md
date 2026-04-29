@@ -37,18 +37,25 @@ Scripture from **API.Bible** is loaded **only on the Next.js server**: `API_BIBL
    - `supabase/migrations/005_tier3_personalization.sql` (preferences columns, `analytics_events`, `push_devices`, `daily_verses` read scope)
    - `supabase/migrations/006_scripture_license_markers.sql` (COMMENT markers on `daily_verses` — TODO[NIV_LICENSE])
    - `supabase/migrations/007_profile_identity.sql` (`first_name`, `last_name`, `phone` on `user_profiles`)
-2. **Authentication → Providers**: enable Google and Apple; add redirect URLs:
+2. **Authentication → Providers**:
+   - **Google**: enable and paste client id + secret; authorize redirect URLs (below).
+   - **Apple (optional — hidden in the sign-in UI for now; enable in Supabase when you add the button back)**:
+     1. In [Apple Developer](https://developer.apple.com/account/resources/identifiers/list/serviceId), create a **Services ID** (e.g. `com.yourorg.biblebyte.web`) and turn on **Sign In with Apple**.
+     2. Under **Web Authentication Configuration**, add your **Domains** (production hostname; Apple requires HTTPS except for limited local testing) and **Return URLs**. You **must** include Supabase’s callback exactly: `https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback` (same URL shown in **Authentication → Providers → Apple** in Supabase).
+     3. Create a **Sign in with Apple** **Key** (.p8), note **Key ID** and **Team ID**, then generate the **Secret Key** (JWT) Supabase expects—[Supabase Apple guide](https://supabase.com/docs/guides/auth/social-login/auth-apple) documents the dashboard fields. **Rotate that secret about every 6 months** or Apple sign-in will start failing.
+     4. In Supabase → **Apple** provider: paste **Services ID** (client id), secret, and enable the provider.
+3. **Authentication → URL configuration** — **Redirect URLs** allowlist (examples):
    - `http://localhost:3000/auth/callback`
    - `https://<your-vercel-domain>/auth/callback`
-3. **Authentication → URL configuration**: set site URL and additional redirect URLs to match `.env.local` / production.
-4. Apple / Google OAuth client configurations must list Supabase’s callback URL exactly as documented in Supabase Auth settings.
+   Wildcards like `http://localhost:3000/auth/callback**` are supported per Supabase redirect rules—match what you use after OAuth.
+4. Set **Site URL** to your primary origin (e.g. production `https://…` or local `http://localhost:3000` for dev).
 
 ## Routes (Phase 1)
 
 | Path | Purpose |
 |------|---------|
 | `/` | Landing (guest) |
-| `/login` | Google / Apple OAuth |
+| `/login` | Google OAuth |
 | `/auth/callback` | OAuth code exchange |
 | `/onboarding` | 5-step spiritual profile |
 | `/home` | Primary experience; optional **live daily verse** via `HOME_DAILY_VERSE_USE_SCRIPTURE_API` + `api_bible` |

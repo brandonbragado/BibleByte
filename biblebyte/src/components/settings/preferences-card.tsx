@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { updatePreferences } from "@/app/(main)/settings/actions";
+import { AppearanceThemeSection } from "@/components/settings/appearance-theme-section";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,7 +26,8 @@ export async function PreferencesCard() {
           <CardTitle className="font-display text-xl">Experience</CardTitle>
           <CardDescription>Sign in to manage reminders and analytics consent.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <AppearanceThemeSection />
           <Button variant="outline" size="sm" asChild>
             <Link href="/login">Sign in</Link>
           </Button>
@@ -61,6 +63,7 @@ export async function PreferencesCard() {
       </CardHeader>
       <CardContent>
         <form action={updatePreferences} className="space-y-6">
+          <AppearanceThemeSection />
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
             <input
               type="checkbox"

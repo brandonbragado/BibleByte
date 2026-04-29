@@ -88,12 +88,16 @@ export async function updateSession(request: NextRequest) {
   if (onboardingDone && isOnboarding) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
+    url.searchParams.set("welcome", "1");
     return NextResponse.redirect(url);
   }
 
   if ((isLanding || isAuthPage) && user) {
     const url = request.nextUrl.clone();
     url.pathname = onboardingDone ? "/home" : "/onboarding";
+    if (onboardingDone && isAuthPage) {
+      url.searchParams.set("welcome", "1");
+    }
     return NextResponse.redirect(url);
   }
 
