@@ -16,7 +16,8 @@ Hooks already in the Next app:
 
 ## 2. Scheduler
 
-`vercel.json` registers a cron hitting `/api/cron/reminders`. Adjust cadence:
+`vercel.json` registers a daily Hobby-plan-safe cron hitting `/api/cron/reminders`.
+Adjust cadence when the project moves to a scheduler that supports higher frequency:
 
 - Reminders compare **UTC minute** to `reminder_wall_time` — run **at least once per minute** if you want minute precision with naive UTC storage.
 - Lower-frequency crons can skip users unless their reminder falls exactly when the cron fires.
