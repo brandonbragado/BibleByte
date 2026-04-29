@@ -13,14 +13,15 @@ import { DailyVerseCard, type LiveDailyScripture } from "@/components/home/daily
 import { HomeGreeting } from "@/components/home/home-greeting";
 import { HomePageEntrance } from "@/components/home/home-page-entrance";
 import {
-  getScriptureProviderMode,
   homeDailyVerseUseScriptureApi,
 } from "@/config/scripture";
+import { getFallbackDailyVerseForDate } from "@/lib/bible/daily-verse-fallback";
 import { parseDailyVerseReference } from "@/lib/bible/parse-daily-reference";
 import { getBookByCode } from "@/lib/bible/canon";
 import { formatIsoDateUs, utcTodayIsoDate } from "@/lib/date/utc-date";
 import type { AiChatMessageDto } from "@/lib/ai/types";
 import { loadHomeAiChatState } from "@/lib/ai/chat-service";
+import { getRotatingQuickPrompts } from "@/lib/ai/quick-prompts";
 import { resolveGreetingFirstName } from "@/lib/profile/greeting-name";
 import { loadChapterFromApiBible } from "@/lib/scripture/scripture-service";
 import { createClient } from "@/lib/supabase/server";
@@ -98,7 +99,7 @@ export default async function HomePage({ searchParams }: Props) {
     reference: string;
     body_placeholder: string;
     attribution_note: string | null;
-  } | null = null;
+  };
 
   const { data: verseRow } = await supabase
     .from("daily_verses")
@@ -112,14 +113,12 @@ export default async function HomePage({ searchParams }: Props) {
       body_placeholder: verseRow.body_placeholder,
       attribution_note: verseRow.attribution_note ?? null,
     };
+  } else {
+    dailyVerse = getFallbackDailyVerseForDate(entryDate);
   }
 
   let liveDailyScripture: LiveDailyScripture | null = null;
-  if (
-    homeDailyVerseUseScriptureApi() &&
-    getScriptureProviderMode() === "api_bible" &&
-    dailyVerse
-  ) {
+  if (homeDailyVerseUseScriptureApi()) {
     const loc = parseDailyVerseReference(dailyVerse.reference);
     if (loc) {
       try {
@@ -164,6 +163,8 @@ export default async function HomePage({ searchParams }: Props) {
         ? "Choose analytics + reminders under Settings → Experience (native scheduling ties in later)."
         : "Sign in to bookmark chapters and tune reminders.";
 
+  const quickPrompts = getRotatingQuickPrompts();
+
   return (
     <HomePageEntrance playSlowEntrance={playWelcomeEntrance}>
       <header className="space-y-2">
@@ -185,6 +186,7 @@ export default async function HomePage({ searchParams }: Props) {
         key={aiCompanionKey}
         initialSessionId={aiChatSessionId}
         initialMessages={aiChatMessages}
+        quickPrompts={quickPrompts}
       />
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">

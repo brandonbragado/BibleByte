@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDailyVerseReference } from "@/lib/bible/parse-daily-reference";
+import {
+  displayDailyVerseReference,
+  parseDailyVerseReference,
+} from "@/lib/bible/parse-daily-reference";
 
 describe("parseDailyVerseReference", () => {
   it("parses John with placeholder suffix", () => {
@@ -27,5 +30,16 @@ describe("parseDailyVerseReference", () => {
 
   it("returns null for garbage", () => {
     expect(parseDailyVerseReference("not a ref")).toBeNull();
+  });
+});
+
+describe("displayDailyVerseReference", () => {
+  it("strips trailing (placeholder) case-insensitively", () => {
+    expect(displayDailyVerseReference("John 3:16 (placeholder)")).toBe("John 3:16");
+    expect(displayDailyVerseReference("Psalm 23:1–3 (PLACEHOLDER)")).toBe("Psalm 23:1–3");
+  });
+
+  it("leaves refs without suffix unchanged", () => {
+    expect(displayDailyVerseReference("Romans 8:28")).toBe("Romans 8:28");
   });
 });

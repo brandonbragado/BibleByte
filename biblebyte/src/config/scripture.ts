@@ -98,9 +98,12 @@ export function apiBiblePlaceholderOnUpstreamError(): boolean {
   return process.env.API_BIBLE_PLACEHOLDER_ON_UPSTREAM_ERROR === "true";
 }
 
-/** Try `loadChapterFromApiBible` on Home for today’s `daily_verses.reference` (server-only). */
+/** Try API.Bible chapter for Home daily verse when mode is `api_bible`. On by default; set `HOME_DAILY_VERSE_USE_SCRIPTURE_API=false` to keep placeholder body only. */
 export function homeDailyVerseUseScriptureApi(): boolean {
-  return process.env.HOME_DAILY_VERSE_USE_SCRIPTURE_API === "true";
+  if (!isApiBibleScriptureMode()) return false;
+  const raw = process.env.HOME_DAILY_VERSE_USE_SCRIPTURE_API?.trim().toLowerCase();
+  if (raw === "false" || raw === "0" || raw === "off") return false;
+  return true;
 }
 
 /** Per-request timeout for API.Bible `fetch` (ms). */

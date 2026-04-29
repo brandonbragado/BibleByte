@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { ChatInput } from "@/components/ai/ChatInput";
@@ -10,22 +10,30 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AiChatMessageDto } from "@/lib/ai/types";
 
-const QUICK_PROMPTS = [
-  "I feel anxious",
-  "Help me pray",
-  "Explain this verse",
-  "What does God say about forgiveness?",
-  "Help me build discipline",
-  "I need direction",
-  "Help my relationship with God",
-] as const;
+function companionRequestErrorMessage(error: string | undefined, code: string | undefined): string {
+  const trimmed = error?.trim();
+  if (trimmed) return trimmed;
+
+  switch (code) {
+    case "ai_not_configured":
+      return "AI isn’t configured yet. Add OPENAI_API_KEY to .env.local (see .env.example), then restart the dev server.";
+    case "unauthorized":
+      return "Sign in to use the companion — chat is only saved for signed-in users.";
+    case "schema_outdated":
+      return "Database needs migration 008 (AI chat messages). Run Supabase migrations, then try again.";
+    default:
+      return "Could not get a reply.";
+  }
+}
 
 type Props = {
   initialSessionId: string | null;
   initialMessages: AiChatMessageDto[];
+  /** Rotating quick prompts (e.g. from server using `getRotatingQuickPrompts()`). */
+  quickPrompts: readonly string[];
 };
 
-export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
+export function AICompanionCard({ initialSessionId, initialMessages, quickPrompts }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [messages, setMessages] = useState<AiChatMessageDto[]>(initialMessages);
@@ -33,6 +41,8 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const sendInFlightRef = useRef(false);
 
   const welcome = useMemo(
     () =>
@@ -42,10 +52,24 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
     [messages.length]
   );
 
+  /** Keep transcript scrolled to newest turn (user + assistant). */
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
+
+  /** Sync from server only when session or stored message ids change (not on every new array reference). */
+  const serverTranscriptKey = `${initialSessionId ?? "none"}|${initialMessages.map((m) => m.id).join("|")}`;
+  useEffect(() => {
+    setSessionId(initialSessionId);
+    setMessages(initialMessages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed by transcript identity only
+  }, [serverTranscriptKey]);
+
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || sendInFlightRef.current) return;
 
+    sendInFlightRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -76,7 +100,7 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
 
       if (!res.ok) {
         setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
-        setError(json.error ?? "Could not get a reply.");
+        setError(companionRequestErrorMessage(json.error, json.code));
         return;
       }
 
@@ -102,6 +126,7 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
       setError("Network error. Try again.");
     } finally {
+      sendInFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -115,8 +140,9 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
         </Badge>
         <CardTitle className="font-display text-2xl">Companion chat</CardTitle>
         <CardDescription className="text-base leading-relaxed">
-          Scripture-grounded, humble, and practical—never replacing pastors or counselors. Your last messages
-          are included so follow-ups stay in context.
+          Scripture-grounded, humble, and practical—never replacing pastors or counselors. This space is for the Bible,
+          faith, prayer, and spiritual life; off-topic questions are kindly redirected. Your last messages stay in
+          context for follow-ups.
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">
@@ -127,23 +153,36 @@ export function AICompanionCard({ initialSessionId, initialMessages }: Props) {
         )}
 
         <div
-          className="max-h-[min(360px,50vh)] space-y-3 overflow-y-auto rounded-2xl border border-border/60 bg-muted/25 p-3"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions"
+          className="flex max-h-[min(360px,50vh)] min-h-[8.5rem] flex-col rounded-2xl border border-border/60 bg-muted/25"
+          aria-label="AI companion conversation"
         >
-          {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} />
-          ))}
-          {loading && (
-            <p className="text-center text-xs text-muted-foreground" aria-busy="true">
-              Thinking…
-            </p>
-          )}
+          <p className="border-b border-border/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Conversation
+          </p>
+          <div
+            className="flex-1 space-y-4 overflow-y-auto p-3"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
+            {messages.length === 0 && !loading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No messages yet — use a quick prompt or type below. Replies appear here in order.
+              </p>
+            ) : (
+              messages.map((m) => <ChatMessage key={m.id} message={m} />)
+            )}
+            {loading && (
+              <p className="text-center text-xs text-muted-foreground" aria-busy="true">
+                Thinking…
+              </p>
+            )}
+            <div ref={logEndRef} aria-hidden className="h-px shrink-0" />
+          </div>
         </div>
 
         <PromptChips
-          prompts={QUICK_PROMPTS}
+          prompts={quickPrompts}
           disabled={loading}
           onPick={(p) => {
             setDraft(p);

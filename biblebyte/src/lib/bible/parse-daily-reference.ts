@@ -9,9 +9,14 @@ export type ParsedDailyReference = {
   verseEnd: number;
 };
 
+/** Strip seed suffix for UI (e.g. `John 3:16 (placeholder)` → `John 3:16`). */
+export function displayDailyVerseReference(reference: string): string {
+  return reference.replace(/\s*\(placeholder\)\s*$/i, "").trim();
+}
+
 /** Strip seed suffix like `John 3:16 (placeholder)`. */
 function stripPlaceholderSuffix(ref: string): string {
-  return ref.replace(/\s*\(placeholder\)\s*$/i, "").trim();
+  return displayDailyVerseReference(ref);
 }
 
 function normalizeBookLookup(name: string): string {
@@ -37,7 +42,9 @@ export function parseDailyVerseReference(reference: string): ParsedDailyReferenc
   const cleaned = stripPlaceholderSuffix(reference);
   if (!cleaned) return null;
 
-  const m = cleaned.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)(?:\s*[–-]\s*(\d+))?\s*$/);
+  const m = cleaned.match(
+    /^(.+?)\s+(\d+)\s*:\s*(\d+)(?:\s*[\u2013\u2014-]\s*(\d+))?\s*$/
+  );
   if (!m) return null;
 
   const bookPart = m[1]?.trim() ?? "";

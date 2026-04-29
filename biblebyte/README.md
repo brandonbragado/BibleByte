@@ -58,7 +58,7 @@ Scripture from **API.Bible** is loaded **only on the Next.js server**: `API_BIBL
 | `/login` | Google OAuth |
 | `/auth/callback` | OAuth code exchange |
 | `/onboarding` | 5-step spiritual profile |
-| `/home` | Primary experience; optional **live daily verse** via `HOME_DAILY_VERSE_USE_SCRIPTURE_API` + `api_bible` |
+| `/home` | Primary experience; **live daily verse** from API.Bible when `SCRIPTURE_PROVIDER_MODE=api_bible` (on by default; opt out with `HOME_DAILY_VERSE_USE_SCRIPTURE_API=false`) |
 | `/bible`, `/journal`, `/profile`, `/settings` | Bible reader + Tier 3 personalization surfaces |
 | `POST /api/ai/chat` | BibleByte AI companion (auth required; OpenAI server-side; session + history in Supabase — apply migration `008_chat_messages_text_user.sql`) |
 | `POST /api/analytics` | Opt-in analytics events (`analytics_opt_in` must be true) |

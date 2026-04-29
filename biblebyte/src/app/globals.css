@@ -122,3 +122,11 @@ body {
   line-height: 1.08;
   letter-spacing: -0.03em;
 }
+
+/* <details> chevron: Tailwind `group-open` on `<details>` can emit invalid nested selectors in v4 + Turbopack */
+details.bb-disclosure > summary .bb-disclosure-chevron {
+  transition: transform 0.2s ease;
+}
+details.bb-disclosure[open] > summary .bb-disclosure-chevron {
+  transform: rotate(180deg);
+}

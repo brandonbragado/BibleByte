@@ -53,13 +53,31 @@ export function getActiveBibleId(): string {
   return def;
 }
 
+/** Remove a cut-off tag opener at segment end (regex splits can leave `<span` with no `>`; `<[^>]+>` won't match it). */
+function stripIncompleteTagTail(s: string): string {
+  return s.replace(/<[^>]*$/g, "").trim();
+}
+
 function stripTags(html: string): string {
-  return html
+  let s = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/<[^>]+>/g, " ");
+  s = stripIncompleteTagTail(s);
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+/** Drop leading verse digit already embedded in API HTML (e.g. `<sup>1</sup> Text…` → `1 Text…` before we add `1. ` in UI). */
+function stripLeadingVerseDuplicate(text: string, n: number): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  const escaped = String(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return trimmed.replace(new RegExp(`^${escaped}(?:\\s*[.:]+\\s*|\\s+)`), "").trim();
+}
+
+function versePlainText(rawHtml: string, verseNumber: number): string {
+  return stripLeadingVerseDuplicate(stripTags(rawHtml), verseNumber);
 }
 
 /** Parse API.Bible chapter HTML into verse lines — never log raw HTML at info level. */
@@ -71,7 +89,7 @@ export function parseVersesFromChapterHtml(html: string): VerseLine[] {
   let m: RegExpExecArray | null;
   while ((m = dataNum.exec(html)) !== null) {
     const n = Number.parseInt(m[1], 10);
-    const text = stripTags(m[2] ?? "").trim();
+    const text = versePlainText(m[2] ?? "", n);
     if (Number.isFinite(n) && text) verses.push({ verseNumber: n, text });
   }
   if (verses.length) {
@@ -81,7 +99,7 @@ export function parseVersesFromChapterHtml(html: string): VerseLine[] {
   const sup = /<sup[^>]*>(\d+)<\/sup>\s*([\s\S]*?)(?=<sup[^>]*>|$)/gi;
   while ((m = sup.exec(html)) !== null) {
     const n = Number.parseInt(m[1], 10);
-    const text = stripTags(m[2] ?? "").trim();
+    const text = versePlainText(m[2] ?? "", n);
     if (Number.isFinite(n) && text) verses.push({ verseNumber: n, text });
   }
   if (verses.length) {
@@ -92,26 +110,55 @@ export function parseVersesFromChapterHtml(html: string): VerseLine[] {
     /<span[^>]*data-usfm="[^"]*\.(\d+)"[^>]*>([\s\S]*?)<\/span>/gi;
   while ((m = span.exec(html)) !== null) {
     const n = Number.parseInt(m[1], 10);
-    const text = stripTags(m[2] ?? "").trim();
+    const text = versePlainText(m[2] ?? "", n);
     if (Number.isFinite(n) && text) verses.push({ verseNumber: n, text });
   }
   if (verses.length) {
     return verses.sort((a, b) => a.verseNumber - b.verseNumber);
   }
 
-  const flat = stripTags(html);
+  const flat = stripLeadingVerseDuplicate(stripTags(html), 1);
   if (flat) return [{ verseNumber: 1, text: flat }];
   return [];
 }
 
+/**
+ * API.Bible `Book.id` is usually PARATEXT/USFM-like (GEN, MAT, JHN). `abbreviation` is often shorter (Mt, Gn).
+ * Prefer id match first; then name, with aliases where translators use different common titles.
+ */
 function matchApiBook(books: Book[], canon: BibleBookMeta): Book | undefined {
   const code = canon.code.toUpperCase();
-  return books.find(
-    (b) =>
-      b.abbreviation?.toUpperCase() === code ||
-      b.abbreviation?.toUpperCase().replace(/\s+/g, "") === code ||
-      b.name?.toUpperCase() === canon.name.toUpperCase()
-  );
+
+  const apiNameMatchesCanon = (apiName: string | undefined): boolean => {
+    if (!apiName) return false;
+    const a = apiName.toUpperCase().trim();
+    const b = canon.name.toUpperCase();
+    if (a === b) return true;
+    if (code === "PSA") {
+      return a === "PSALM" || a === "PSALMS";
+    }
+    if (code === "SNG") {
+      return (
+        (a.includes("SONG") && (a.includes("SOLOMON") || a.includes("SONGS"))) ||
+        a === "CANTICLES"
+      );
+    }
+    return false;
+  };
+
+  return books.find((b) => {
+    const bid = b.id?.trim().toUpperCase();
+    if (bid === code) return true;
+
+    const abbr = b.abbreviation?.toUpperCase() ?? "";
+    const abbrCompact = abbr.replace(/\s+/g, "");
+    if (abbr === code || abbrCompact === code) return true;
+
+    if (apiNameMatchesCanon(b.name)) return true;
+    if (b.nameLong && apiNameMatchesCanon(b.nameLong)) return true;
+
+    return false;
+  });
 }
 
 async function resolveApiChapter(
@@ -144,7 +191,7 @@ async function resolveApiChapter(
 
   if (!verses.length && full.reference) {
     try {
-      const passage = await getPassage(bibleId, `${canon.code}.${chapterNum}`);
+      const passage = await getPassage(bibleId, `${book.id}.${chapterNum}`);
       verses = parseVersesFromChapterHtml(passage.content ?? "");
     } catch {
       /* fall through */

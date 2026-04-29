@@ -1,4 +1,13 @@
 import OpenAI from "openai";
+import {
+  APIConnectionError,
+  APIConnectionTimeoutError,
+  APIError,
+  AuthenticationError,
+  BadRequestError,
+  PermissionDeniedError,
+  RateLimitError,
+} from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -81,18 +90,108 @@ async function completeAssistantReply(
   }
 
   const client = new OpenAI({ apiKey });
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
-    temperature: 0.65,
-    max_tokens: 1_200,
-    messages: [{ role: "system", content: systemPrompt }, ...turns],
-  });
+  const model = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
 
-  const text = completion.choices[0]?.message?.content?.trim();
-  if (!text) {
-    throw new ChatServiceError("The model returned an empty reply.", 502, "empty_completion");
+  try {
+    const completion = await client.chat.completions.create({
+      model,
+      temperature: 0.65,
+      max_tokens: 1_200,
+      messages: [{ role: "system", content: systemPrompt }, ...turns],
+    });
+
+    const text = completion.choices[0]?.message?.content?.trim();
+    if (!text) {
+      throw new ChatServiceError("The model returned an empty reply.", 502, "empty_completion");
+    }
+    return text.slice(0, AI_CHAT_MAX_MESSAGE_CHARS);
+  } catch (e: unknown) {
+    if (e instanceof ChatServiceError) throw e;
+
+    if (e instanceof APIConnectionError || e instanceof APIConnectionTimeoutError) {
+      console.error(e);
+      throw new ChatServiceError(
+        "Cannot reach OpenAI (network or timeout). Check your connection, VPN, or firewall, then try again.",
+        503,
+        "openai_network"
+      );
+    }
+
+    if (e instanceof AuthenticationError) {
+      console.error(e);
+      throw new ChatServiceError(
+        "OpenAI rejected the API key (401). Create a new secret key at platform.openai.com and set OPENAI_API_KEY in .env.local, then restart the dev server.",
+        503,
+        "openai_invalid_key"
+      );
+    }
+
+    if (e instanceof PermissionDeniedError) {
+      console.error(e);
+      throw new ChatServiceError(
+        "OpenAI returned 403. Confirm this key is for an active project with Chat Completions access.",
+        503,
+        "openai_permission"
+      );
+    }
+
+    if (e instanceof RateLimitError) {
+      console.error(e);
+      throw new ChatServiceError(
+        "OpenAI rate or usage limit (429). Wait a bit, or check Usage and billing at platform.openai.com.",
+        503,
+        "openai_rate_limited"
+      );
+    }
+
+    if (e instanceof BadRequestError) {
+      console.error(e);
+      const msg = e.message?.toLowerCase() ?? "";
+      if (msg.includes("model")) {
+        throw new ChatServiceError(
+          `Model "${model}" isn’t available to this key. Set OPENAI_CHAT_MODEL to a model your account can use (often gpt-4o-mini) and restart the server.`,
+          503,
+          "openai_model"
+        );
+      }
+      throw new ChatServiceError(
+        "OpenAI rejected the request (400). Check the server terminal for the detailed error.",
+        503,
+        "openai_bad_request"
+      );
+    }
+
+    if (e instanceof APIError) {
+      console.error(e);
+      const status = e.status;
+      const body = e.message?.toLowerCase() ?? "";
+      if (
+        status === 402 ||
+        body.includes("insufficient") ||
+        body.includes("quota") ||
+        body.includes("billing") ||
+        body.includes("credit")
+      ) {
+        throw new ChatServiceError(
+          "OpenAI billing or quota: add a payment method or credits at platform.openai.com/account/billing, then retry.",
+          503,
+          "openai_billing"
+        );
+      }
+      throw new ChatServiceError(
+        `OpenAI returned HTTP ${status ?? "error"}. See the terminal where Next.js is running for details.`,
+        503,
+        "openai_upstream"
+      );
+    }
+
+    console.error(e);
+    throw new ChatServiceError(
+      "OpenAI request failed for an unexpected reason. See the server terminal for the stack trace.",
+      503,
+      "openai_error"
+    );
   }
-  return text.slice(0, AI_CHAT_MAX_MESSAGE_CHARS);
 }
 
 /**
@@ -208,14 +307,7 @@ export async function processAiChatTurn(opts: {
   const chronological = [...(recentDesc ?? [])].reverse() as AiChatMessageRow[];
   const turns = rowsToOpenAiTurns(chronological);
 
-  let assistantText: string;
-  try {
-    assistantText = await completeAssistantReply(systemPrompt, turns);
-  } catch (e) {
-    if (e instanceof ChatServiceError) throw e;
-    console.error(e);
-    throw new ChatServiceError("Companion temporarily unavailable.", 503, "openai_error");
-  }
+  const assistantText = await completeAssistantReply(systemPrompt, turns);
 
   const { error: asstErr } = await opts.supabase.from("chat_messages").insert({
     session_id: sessionId,
