@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 
 import "./globals.css";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   title: "BibleByte — Daily spiritual companion",
   description:
     "Grow closer to God through scripture, prayer, reflection, and wise life application—in a beautifully simple daily experience.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

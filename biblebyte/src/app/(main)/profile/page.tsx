@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Sparkles } from "lucide-react";
 
+import { ProfileIdentityForm } from "@/components/profile/profile-identity-form";
 import {
   Card,
   CardContent,
@@ -27,7 +28,7 @@ export default async function ProfilePage() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">Profile</p>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Your spiritual milestones</h1>
+            <h1 className="font-display text-fluid-page-title font-semibold">Your spiritual milestones</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
               Sign in to see streaks and bookmark counts sourced from your journal and Bible activity.
             </p>
@@ -38,6 +39,12 @@ export default async function ProfilePage() {
   }
 
   const stats = await loadProfileStats(supabase, user.id);
+
+  const { data: profileRow } = await supabase
+    .from("user_profiles")
+    .select("first_name, last_name, phone")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const tiles = [
     {
@@ -73,19 +80,26 @@ export default async function ProfilePage() {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">Profile</p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Your spiritual milestones</h1>
+          <h1 className="font-display text-fluid-page-title font-semibold">Your spiritual milestones</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
             Snapshot counts stay local to your account—analytics exports remain opt-in under Settings.
           </p>
         </div>
       </header>
 
+      <ProfileIdentityForm
+        email={user.email ?? ""}
+        firstName={profileRow?.first_name ?? ""}
+        lastName={profileRow?.last_name ?? ""}
+        phone={profileRow?.phone ?? ""}
+      />
+
       <Card className="border-primary/12 shadow-soft">
         <CardHeader>
           <CardTitle className="font-display text-xl">Highlights</CardTitle>
           <CardDescription>Grounded in saved passages, prayers, and journal rhythm.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 xl:gap-4">
           {tiles.map((tile) => (
             <div
               key={tile.label}

@@ -40,7 +40,7 @@ export async function saveTodayReflection(rawBody: string): Promise<SaveReflecti
       console.error(error);
       return { ok: false, error: "Could not clear reflection." };
     }
-    revalidatePath("/home");
+    revalidatePath("/journal");
     return { ok: true, cleared: true };
   }
 
@@ -67,6 +67,6 @@ export async function saveTodayReflection(rawBody: string): Promise<SaveReflecti
 
   await instrumentAnalyticsEvent("reflection_saved", { entry_date: entryDate });
 
-  revalidatePath("/home");
+  revalidatePath("/journal");
   return { ok: true };
 }

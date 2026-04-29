@@ -1,0 +1,292 @@
+import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { buildSystemPrompt } from "@/lib/ai/biblebyte-system-prompt";
+import {
+  AI_CHAT_HISTORY_LIMIT,
+  AI_CHAT_MAX_MESSAGE_CHARS,
+  isLikelyUuid,
+  sanitizeChatInput,
+} from "@/lib/ai/safety";
+import type { AiChatApiResponse, AiChatMessageDto, AiChatMessageRow } from "@/lib/ai/types";
+
+export const HOME_AI_SESSION_TITLE = "BibleByte Home";
+
+export class ChatServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: string
+  ) {
+    super(message);
+    this.name = "ChatServiceError";
+  }
+}
+
+type ProfileForAi = {
+  first_name: string | null;
+  spiritual_tags: string[] | null;
+  onboarding_data: Record<string, unknown> | null;
+};
+
+export function buildPersonalizationSummary(row: ProfileForAi | null): string {
+  if (!row) return "";
+  const parts: string[] = [];
+  if (row.first_name?.trim()) {
+    parts.push(`Preferred name: ${row.first_name.trim()}.`);
+  }
+  const tags = row.spiritual_tags ?? [];
+  if (tags.length > 0) {
+    const clean = tags.slice(0, 10).map((t) => t.replace(/^[^:]+:/, "").replace(/_/g, " "));
+    parts.push(`Topics / focuses they chose: ${clean.join(", ")}.`);
+  }
+  const od = row.onboarding_data;
+  if (od && typeof od === "object") {
+    const gf = od.growth_focus;
+    const season = od.season;
+    const learn = od.learning_style;
+    const minutes = od.daily_minutes;
+    const support = od.support_need;
+    if (typeof gf === "string" && gf) parts.push(`Hoping to grow in: ${gf}.`);
+    if (typeof season === "string" && season) parts.push(`Life season they named: ${season}.`);
+    if (typeof learn === "string" && learn) parts.push(`Learning preference: ${learn}.`);
+    if (typeof minutes === "string" && minutes) {
+      parts.push(`Typical daily time they offered: ${minutes}.`);
+    }
+    if (typeof support === "string" && support) parts.push(`Support they asked for: ${support}.`);
+  }
+  return parts.join(" ");
+}
+
+function rowsToOpenAiTurns(rows: AiChatMessageRow[]): ChatCompletionMessageParam[] {
+  const out: ChatCompletionMessageParam[] = [];
+  for (const r of rows) {
+    if (r.role === "system") continue;
+    if (r.role !== "user" && r.role !== "assistant") continue;
+    const text = r.content.trim();
+    if (!text) continue;
+    out.push({ role: r.role, content: text.slice(0, AI_CHAT_MAX_MESSAGE_CHARS) });
+  }
+  return out;
+}
+
+async function completeAssistantReply(
+  systemPrompt: string,
+  turns: ChatCompletionMessageParam[]
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new ChatServiceError("AI is not configured (OPENAI_API_KEY).", 503, "ai_not_configured");
+  }
+
+  const client = new OpenAI({ apiKey });
+  const completion = await client.chat.completions.create({
+    model: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
+    temperature: 0.65,
+    max_tokens: 1_200,
+    messages: [{ role: "system", content: systemPrompt }, ...turns],
+  });
+
+  const text = completion.choices[0]?.message?.content?.trim();
+  if (!text) {
+    throw new ChatServiceError("The model returned an empty reply.", 502, "empty_completion");
+  }
+  return text.slice(0, AI_CHAT_MAX_MESSAGE_CHARS);
+}
+
+/**
+ * Home / API chat turn: validates user, persists messages, calls OpenAI with history + personalization.
+ */
+export async function processAiChatTurn(opts: {
+  supabase: SupabaseClient;
+  userId: string;
+  sessionIdInput?: string | null;
+  rawMessage: string;
+}): Promise<AiChatApiResponse> {
+  const sanitized = sanitizeChatInput(opts.rawMessage);
+  if (!sanitized.ok) {
+    throw new ChatServiceError(sanitized.error, 400, "invalid_message");
+  }
+  const message = sanitized.text;
+
+  let sessionId = opts.sessionIdInput?.trim() ?? "";
+
+  if (sessionId && !isLikelyUuid(sessionId)) {
+    throw new ChatServiceError("Invalid session id.", 400, "invalid_session");
+  }
+
+  const { data: profile, error: profileErr } = await opts.supabase
+    .from("user_profiles")
+    .select("first_name, spiritual_tags, onboarding_data")
+    .eq("id", opts.userId)
+    .maybeSingle();
+
+  if (profileErr) {
+    console.error(profileErr);
+  }
+
+  const personalization = buildPersonalizationSummary(
+    (profile ?? null) as ProfileForAi | null
+  );
+  const systemPrompt = buildSystemPrompt(personalization);
+
+  if (!sessionId) {
+    const { data: existing, error: findErr } = await opts.supabase
+      .from("chat_sessions")
+      .select("id")
+      .eq("user_id", opts.userId)
+      .eq("title", HOME_AI_SESSION_TITLE)
+      .maybeSingle();
+
+    if (findErr) {
+      console.error(findErr);
+      throw new ChatServiceError("Could not resolve chat session.", 500, "session_lookup_failed");
+    }
+
+    if (existing?.id) {
+      sessionId = existing.id;
+    } else {
+      const { data: created, error: insErr } = await opts.supabase
+        .from("chat_sessions")
+        .insert({ user_id: opts.userId, title: HOME_AI_SESSION_TITLE })
+        .select("id")
+        .single();
+
+      if (insErr || !created?.id) {
+        console.error(insErr);
+        throw new ChatServiceError("Could not start chat session.", 500, "session_create_failed");
+      }
+      sessionId = created.id;
+    }
+  } else {
+    const { data: session, error: sessErr } = await opts.supabase
+      .from("chat_sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("user_id", opts.userId)
+      .maybeSingle();
+
+    if (sessErr || !session?.id) {
+      throw new ChatServiceError("Chat session not found.", 404, "session_not_found");
+    }
+  }
+
+  const { error: userInsErr } = await opts.supabase.from("chat_messages").insert({
+    session_id: sessionId,
+    user_id: opts.userId,
+    role: "user",
+    content: message,
+  });
+
+  if (userInsErr) {
+    console.error(userInsErr);
+    if (userInsErr.message?.includes("content") || userInsErr.code === "42703") {
+      throw new ChatServiceError(
+        "Database needs migration 008_chat_messages_text_user.sql for AI chat.",
+        503,
+        "schema_outdated"
+      );
+    }
+    throw new ChatServiceError("Could not save your message.", 500, "user_message_failed");
+  }
+
+  const { data: recentDesc, error: histErr } = await opts.supabase
+    .from("chat_messages")
+    .select("id, session_id, user_id, role, content, created_at")
+    .eq("session_id", sessionId)
+    .eq("user_id", opts.userId)
+    .in("role", ["user", "assistant"])
+    .order("created_at", { ascending: false })
+    .limit(AI_CHAT_HISTORY_LIMIT);
+
+  if (histErr) {
+    console.error(histErr);
+    throw new ChatServiceError("Could not load chat history.", 500, "history_failed");
+  }
+
+  const chronological = [...(recentDesc ?? [])].reverse() as AiChatMessageRow[];
+  const turns = rowsToOpenAiTurns(chronological);
+
+  let assistantText: string;
+  try {
+    assistantText = await completeAssistantReply(systemPrompt, turns);
+  } catch (e) {
+    if (e instanceof ChatServiceError) throw e;
+    console.error(e);
+    throw new ChatServiceError("Companion temporarily unavailable.", 503, "openai_error");
+  }
+
+  const { error: asstErr } = await opts.supabase.from("chat_messages").insert({
+    session_id: sessionId,
+    user_id: opts.userId,
+    role: "assistant",
+    content: assistantText,
+  });
+
+  if (asstErr) {
+    console.error(asstErr);
+    throw new ChatServiceError("Could not save the assistant reply.", 500, "assistant_save_failed");
+  }
+
+  await opts.supabase
+    .from("chat_sessions")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", sessionId);
+
+  console.info(
+    JSON.stringify({
+      event: "ai_chat_turn",
+      session_id: sessionId,
+      user_message_len: message.length,
+      assistant_len: assistantText.length,
+    })
+  );
+
+  return {
+    sessionId,
+    message: { role: "assistant", content: assistantText },
+  };
+}
+
+/** Server component helper — load Home session + recent messages for UI. */
+export async function loadHomeAiChatState(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ sessionId: string | null; messages: AiChatMessageDto[] }> {
+  const { data: session } = await supabase
+    .from("chat_sessions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("title", HOME_AI_SESSION_TITLE)
+    .maybeSingle();
+
+  if (!session?.id) {
+    return { sessionId: null, messages: [] };
+  }
+
+  const { data: rows, error } = await supabase
+    .from("chat_messages")
+    .select("id, role, content, created_at")
+    .eq("session_id", session.id)
+    .eq("user_id", userId)
+    .in("role", ["user", "assistant"])
+    .order("created_at", { ascending: true })
+    .limit(80);
+
+  if (error) {
+    console.error(error);
+    return { sessionId: session.id, messages: [] };
+  }
+
+  const messages: AiChatMessageDto[] = (rows ?? [])
+    .filter((r) => r.role === "user" || r.role === "assistant")
+    .map((r) => ({
+      id: r.id,
+      role: r.role as "user" | "assistant",
+      content: typeof r.content === "string" ? r.content : String(r.content),
+      created_at: r.created_at,
+    }));
+
+  return { sessionId: session.id, messages };
+}

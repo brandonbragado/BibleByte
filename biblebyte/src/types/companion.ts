@@ -15,3 +15,11 @@ export type CompanionAssistantContent = {
   blocks: CompanionBlocks;
   demo?: boolean;
 };
+
+/** Row loaded from Supabase `chat_messages` (+ session filter). */
+export type CompanionMessageRow = {
+  id: string;
+  role: string;
+  content: CompanionUserContent | CompanionAssistantContent | Record<string, unknown>;
+  created_at: string;
+};

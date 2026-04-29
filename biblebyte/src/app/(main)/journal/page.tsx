@@ -1,9 +1,12 @@
 import { PenLine } from "lucide-react";
 
+import { GuidedGrowthPathCard } from "@/components/home/guided-growth-path-card";
+import { ReflectionCard } from "@/components/home/reflection-card";
 import { JournalEntryCreateForm } from "@/components/journal/journal-entry-create-form";
 import { JournalEntryList } from "@/components/journal/journal-entry-list";
 import { PrayerCreateForm } from "@/components/journal/prayer-create-form";
 import { PrayerList } from "@/components/journal/prayer-list";
+import { utcTodayIsoDate } from "@/lib/date/utc-date";
 import { createClient } from "@/lib/supabase/server";
 import type { JournalEntryRow, PrayerRow } from "@/types/journal";
 
@@ -12,6 +15,28 @@ export default async function JournalPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const entryDate = utcTodayIsoDate();
+
+  let reflectionInitial = "";
+  let reflectionSavedLabel: string | null = null;
+  let reflectionRowId: string | null = null;
+
+  if (user?.id) {
+    const { data: reflection } = await supabase
+      .from("daily_reflections")
+      .select("id, body")
+      .eq("user_id", user.id)
+      .eq("entry_date", entryDate)
+      .maybeSingle();
+
+    reflectionRowId = reflection?.id ?? null;
+
+    if (reflection?.body) {
+      reflectionInitial = reflection.body;
+      reflectionSavedLabel = `Saved for calendar day ${entryDate} (UTC).`;
+    }
+  }
 
   let prayers: PrayerRow[] = [];
   let entries: JournalEntryRow[] = [];
@@ -46,14 +71,23 @@ export default async function JournalPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
             Journal
           </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">
+          <h1 className="font-display text-fluid-page-title font-semibold">
             Prayer & reflection
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Prayers persist with lifecycle states; reflections capture gratitude and insights alongside your rhythm on Home.
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Prayers persist with lifecycle states; capture today’s intention here or on Home—it stays in sync.
           </p>
         </div>
       </header>
+
+      <div className="space-y-6">
+        <ReflectionCard
+          key={reflectionRowId ?? `draft-${entryDate}`}
+          initialBody={reflectionInitial}
+          savedAtLabel={reflectionSavedLabel}
+        />
+        <GuidedGrowthPathCard />
+      </div>
 
       <section className="space-y-6">
         <PrayerCreateForm />

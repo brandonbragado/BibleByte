@@ -53,7 +53,7 @@ export type ScriptureChapterPayload = {
   upstreamFallbackNote?: string;
 };
 
-/** JSON shape for `GET /api/scripture/passages` (client-safe). */
+/** JSON shape for `GET /api/scripture/passages` and `GET /api/scripture/passage` (client-safe). */
 export type ScripturePassagePayload = {
   passageId: string;
   reference: string;

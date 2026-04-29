@@ -17,7 +17,7 @@ export function HomeGreeting({ firstName }: Props) {
 
   return (
     <h1
-      className="font-display text-4xl font-semibold tracking-tight"
+      className="font-display text-fluid-home-greeting font-semibold"
       suppressHydrationWarning
     >
       {label}, {firstName}

@@ -138,7 +138,7 @@ export function BibleChapterReaderClient({
           </CardDescription>
           {headerExtra ? <div className="pt-2">{headerExtra}</div> : null}
         </CardHeader>
-        <CardContent className="space-y-6 font-serif text-[1.05rem] leading-[1.75] text-foreground/95">
+        <CardContent className="space-y-6 font-serif text-[1.02rem] leading-[1.72] text-foreground/95 sm:text-[1.05rem] sm:leading-[1.76] lg:mx-auto lg:max-w-[40rem] lg:text-[1.07rem] lg:leading-[1.8] xl:max-w-[46rem] xl:text-[1.09rem]">
           {emptyVerses ? (
             <p className="text-sm text-muted-foreground">
               No verses parsed for this chapter — the upstream HTML shape may differ. Try another Bible

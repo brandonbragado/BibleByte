@@ -8,10 +8,8 @@ import {
   type SearchResponseData,
   ScriptureApiError,
 } from "@/lib/scripture/types";
+import { fetchApiBibleJson } from "@/lib/scripture/api-bible-http";
 import { scriptureCacheKey, withScriptureCache } from "@/lib/scripture/cache";
-
-const API_BIBLE_BASE =
-  process.env.API_BIBLE_BASE_URL?.replace(/\/$/, "") ?? "https://api.scripture.api.bible/v1";
 
 /** TTL: catalogue data longer; chapter HTML shorter (NIV caching off by default in headers). */
 const TTL_BIBLES = 3_600_000;
@@ -20,73 +18,18 @@ const TTL_CHAPTER_LIST = 3_600_000;
 const TTL_CHAPTER_BODY = 120_000;
 const TTL_SEARCH = 60_000;
 
-function requireApiKey(): string {
-  const key = process.env.API_BIBLE_KEY?.trim();
-  if (!key) {
-    throw new ScriptureApiError(
-      "API.Bible is not configured (missing API_BIBLE_KEY).",
-      "missing_api_key",
-      503
-    );
-  }
-  return key;
-}
-
-async function apiBibleFetch<T>(path: string, query?: Record<string, string>): Promise<T> {
-  const key = requireApiKey();
-  const url = new URL(`${API_BIBLE_BASE}${path.startsWith("/") ? path : `/${path}`}`);
-  if (query) {
-    for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== "") url.searchParams.set(k, v);
-    }
-  }
-
-  const res = await fetch(url.toString(), {
-    headers: { "api-key": key },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(
-      JSON.stringify({
-        event: "api_bible_http_error",
-        path: url.pathname,
-        status: res.status,
-        // never log full body (may contain scripture text)
-        bodySnippet: body.slice(0, 120),
-      })
-    );
-    let detail = `API.Bible request failed (${res.status}).`;
-    if (res.status === 401) {
-      try {
-        const j = JSON.parse(body) as { message?: string };
-        if (j?.message && typeof j.message === "string") {
-          detail = `API.Bible: ${j.message}`;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    throw new ScriptureApiError(detail, "upstream_error", res.status >= 500 ? 502 : res.status);
-  }
-
-  return res.json() as Promise<T>;
-}
-
 export async function listBibles(): Promise<Bible[]> {
   const cacheKey = scriptureCacheKey(["bibles"]);
-  const env = await withScriptureCache(cacheKey, TTL_BIBLES, async () => {
-    const json = await apiBibleFetch<ApiBibleListEnvelope<Bible>>("/bibles");
+  return withScriptureCache(cacheKey, TTL_BIBLES, async () => {
+    const json = await fetchApiBibleJson<ApiBibleListEnvelope<Bible>>("/bibles");
     return json.data ?? [];
   });
-  return env;
 }
 
 export async function listBooks(bibleId: string): Promise<Book[]> {
   const cacheKey = scriptureCacheKey(["books", bibleId]);
   return withScriptureCache(cacheKey, TTL_BOOKS, async () => {
-    const json = await apiBibleFetch<ApiBibleListEnvelope<Book>>(
+    const json = await fetchApiBibleJson<ApiBibleListEnvelope<Book>>(
       `/bibles/${encodeURIComponent(bibleId)}/books`
     );
     return json.data ?? [];
@@ -96,7 +39,7 @@ export async function listBooks(bibleId: string): Promise<Book[]> {
 export async function listChaptersForBook(bibleId: string, bookId: string): Promise<Chapter[]> {
   const cacheKey = scriptureCacheKey(["chapters", bibleId, bookId]);
   return withScriptureCache(cacheKey, TTL_CHAPTER_LIST, async () => {
-    const json = await apiBibleFetch<ApiBibleListEnvelope<Chapter>>(
+    const json = await fetchApiBibleJson<ApiBibleListEnvelope<Chapter>>(
       `/bibles/${encodeURIComponent(bibleId)}/books/${encodeURIComponent(bookId)}/chapters`
     );
     return json.data ?? [];
@@ -106,7 +49,7 @@ export async function listChaptersForBook(bibleId: string, bookId: string): Prom
 export async function getChapterById(bibleId: string, chapterId: string): Promise<Chapter> {
   const cacheKey = scriptureCacheKey(["chapter", bibleId, chapterId]);
   return withScriptureCache(cacheKey, TTL_CHAPTER_BODY, async () => {
-    const json = await apiBibleFetch<ApiBibleEnvelope<Chapter>>(
+    const json = await fetchApiBibleJson<ApiBibleEnvelope<Chapter>>(
       `/bibles/${encodeURIComponent(bibleId)}/chapters/${encodeURIComponent(chapterId)}`
     );
     if (!json.data) {
@@ -119,7 +62,7 @@ export async function getChapterById(bibleId: string, chapterId: string): Promis
 export async function getPassage(bibleId: string, passageId: string): Promise<Passage> {
   const cacheKey = scriptureCacheKey(["passage", bibleId, passageId]);
   return withScriptureCache(cacheKey, TTL_CHAPTER_BODY, async () => {
-    const json = await apiBibleFetch<ApiBibleEnvelope<Passage>>(
+    const json = await fetchApiBibleJson<ApiBibleEnvelope<Passage>>(
       `/bibles/${encodeURIComponent(bibleId)}/passages/${encodeURIComponent(passageId)}`
     );
     if (!json.data) {
@@ -136,7 +79,7 @@ export async function searchBible(
 ): Promise<SearchResponseData> {
   const cacheKey = scriptureCacheKey(["search", bibleId, query, limit]);
   return withScriptureCache(cacheKey, TTL_SEARCH, async () => {
-    const json = await apiBibleFetch<ApiBibleEnvelope<SearchResponseData>>(
+    const json = await fetchApiBibleJson<ApiBibleEnvelope<SearchResponseData>>(
       `/bibles/${encodeURIComponent(bibleId)}/search`,
       { query, limit }
     );

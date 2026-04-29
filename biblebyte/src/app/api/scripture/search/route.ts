@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
-import { searchActiveBible } from "@/lib/scripture/scripture-service";
+import { sanitizeBibleId, clampSearchLimit, sanitizeSearchQuery } from "@/lib/scripture/sanitize";
+import { getActiveBibleId, searchScriptureForBible } from "@/lib/scripture/scripture-service";
 import type { SearchResult } from "@/lib/scripture/types";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
@@ -15,13 +16,22 @@ export async function GET(req: Request) {
   if (modeBlock) return modeBlock;
 
   const { searchParams } = new URL(req.url);
-  const query = searchParams.get("query")?.trim() ?? "";
-  if (query.length < 2) {
+  const query = sanitizeSearchQuery(searchParams.get("query"));
+  if (!query) {
     return NextResponse.json({ error: "query_too_short", code: "invalid_query" }, { status: 400 });
   }
 
+  const rawBible = searchParams.get("bibleId");
+  const bibleOverride = sanitizeBibleId(rawBible);
+  if (rawBible?.trim() && !bibleOverride) {
+    return NextResponse.json({ error: "invalid_bible_id", code: "invalid_query" }, { status: 400 });
+  }
+
+  const limit = clampSearchLimit(searchParams.get("limit"));
+
   try {
-    const raw = await searchActiveBible(query);
+    const bibleId = bibleOverride ?? getActiveBibleId();
+    const raw = await searchScriptureForBible(bibleId, query, limit);
     const verses = raw.verses ?? [];
     const results: SearchResult[] = verses.map((v) => ({
       reference: v.reference,
@@ -33,6 +43,7 @@ export async function GET(req: Request) {
     console.info(
       JSON.stringify({
         event: "scripture_search",
+        bibleId,
         total: raw.total ?? results.length,
         resultCount: results.length,
       })
@@ -45,6 +56,7 @@ export async function GET(req: Request) {
           total: raw.total ?? results.length,
           results,
         },
+        bibleId,
       },
       {
         headers: {

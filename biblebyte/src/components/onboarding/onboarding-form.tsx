@@ -145,7 +145,7 @@ export function OnboardingForm() {
   ][step];
 
   return (
-    <div className="mx-auto w-full max-w-lg">
+    <div className="mx-auto w-full max-w-lg px-1 sm:max-w-xl sm:px-3 md:max-w-2xl md:px-4">
       <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-muted">
         <motion.div
           className="h-full rounded-full bg-primary"

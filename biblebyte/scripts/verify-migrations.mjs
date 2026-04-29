@@ -17,6 +17,8 @@ const REQUIRED_ORDER = [
   "004_tier2_journal_daily_verse.sql",
   "005_tier3_personalization.sql",
   "006_scripture_license_markers.sql",
+  "007_profile_identity.sql",
+  "008_chat_messages_text_user.sql",
 ];
 
 function main() {

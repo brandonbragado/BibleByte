@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { blocks, demo } = await generateCompanionBlocks(prompt);
+    const { blocks, demo } = await generateCompanionBlocks([{ role: "user", content: prompt }]);
     return NextResponse.json({ blocks, demo });
   } catch (err) {
     console.error(err);

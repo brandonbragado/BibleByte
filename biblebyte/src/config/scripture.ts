@@ -102,3 +102,19 @@ export function apiBiblePlaceholderOnUpstreamError(): boolean {
 export function homeDailyVerseUseScriptureApi(): boolean {
   return process.env.HOME_DAILY_VERSE_USE_SCRIPTURE_API === "true";
 }
+
+/** Per-request timeout for API.Bible `fetch` (ms). */
+export function getApiBibleFetchTimeoutMs(): number {
+  const raw = process.env.API_BIBLE_FETCH_TIMEOUT_MS?.trim();
+  const n = raw ? Number.parseInt(raw, 10) : 15_000;
+  if (!Number.isFinite(n)) return 15_000;
+  return Math.min(60_000, Math.max(3_000, n));
+}
+
+/** Retries after transient failures (502/503/504/timeout429 backoff). Additional attempts beyond the first. */
+export function getApiBibleMaxRetries(): number {
+  const raw = process.env.API_BIBLE_MAX_RETRIES?.trim();
+  const n = raw ? Number.parseInt(raw, 10) : 2;
+  if (!Number.isFinite(n)) return 2;
+  return Math.min(5, Math.max(0, n));
+}

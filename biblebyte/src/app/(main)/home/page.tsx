@@ -1,8 +1,6 @@
 import Link from "next/link";
 
-import { loadHomeCompanionState } from "@/app/(main)/home/companion-actions";
-import { AiCompanionCard } from "@/components/home/ai-companion";
-import { ReflectionCard } from "@/components/home/reflection-card";
+import { AICompanionCard } from "@/components/ai/AICompanionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +17,11 @@ import {
   homeDailyVerseUseScriptureApi,
 } from "@/config/scripture";
 import { parseDailyVerseReference } from "@/lib/bible/parse-daily-reference";
-import { utcTodayIsoDate } from "@/lib/date/utc-date";
 import { getBookByCode } from "@/lib/bible/canon";
+import { formatIsoDateUs, utcTodayIsoDate } from "@/lib/date/utc-date";
+import type { AiChatMessageDto } from "@/lib/ai/types";
+import { loadHomeAiChatState } from "@/lib/ai/chat-service";
+import { resolveGreetingFirstName } from "@/lib/profile/greeting-name";
 import { loadChapterFromApiBible } from "@/lib/scripture/scripture-service";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,50 +37,34 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let displayFirst = "Friend";
-  if (user?.email) {
-    const local = user.email.split("@")[0] ?? "";
-    const chunk = local.split(/[._-]/)[0] ?? local;
-    displayFirst =
-      chunk.slice(0, 1).toUpperCase() + chunk.slice(1).toLowerCase();
-  }
-
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("display_name, spiritual_tags, reminder_enabled, reminder_wall_time")
+    .select(
+      "display_name, first_name, spiritual_tags, reminder_enabled, reminder_wall_time"
+    )
     .maybeSingle();
 
-  if (profile?.display_name?.trim()) {
-    displayFirst = profile.display_name.trim().split(/\s+/)[0] ?? displayFirst;
-  }
+  const displayFirst = resolveGreetingFirstName(profile, user?.email);
 
   const tags: string[] = profile?.spiritual_tags ?? [];
   const reminderWall = wallClockLabel(profile?.reminder_wall_time);
 
   const entryDate = utcTodayIsoDate();
+  const todayDisplay = formatIsoDateUs(entryDate);
 
-  let reflectionInitial = "";
-  let reflectionSavedLabel: string | null = null;
-  let reflectionRowId: string | null = null;
-
+  let aiChatSessionId: string | null = null;
+  let aiChatMessages: AiChatMessageDto[] = [];
   if (user?.id) {
-    const { data: reflection } = await supabase
-      .from("daily_reflections")
-      .select("id, body")
-      .eq("user_id", user.id)
-      .eq("entry_date", entryDate)
-      .maybeSingle();
-
-    reflectionRowId = reflection?.id ?? null;
-
-    if (reflection?.body) {
-      reflectionInitial = reflection.body;
-      reflectionSavedLabel = `Saved for calendar day ${entryDate} (UTC).`;
-    }
+    const aiState = await loadHomeAiChatState(supabase, user.id);
+    aiChatSessionId = aiState.sessionId;
+    aiChatMessages = aiState.messages;
   }
 
-  const { sessionId: companionSessionId, messages: companionMessages } =
-    await loadHomeCompanionState();
+  const aiCompanionKey = [
+    user?.id ?? "anon",
+    aiChatSessionId ?? "no-session",
+    aiChatMessages.map((m) => m.id).join("|") || "_",
+  ].join(":");
 
   let continueReadingLabel: string | null = null;
   let continueReadingHref: string | null = null;
@@ -177,10 +162,13 @@ export default async function HomePage() {
     <div className="space-y-10 pb-8 pt-4">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
-          Today
+          Today{" "}
+          <time dateTime={entryDate} className="font-normal normal-case tracking-normal text-muted-foreground">
+            · {todayDisplay}
+          </time>
         </p>
         <HomeGreeting firstName={displayFirst} />
-        <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+        <p className="max-w-2xl text-base leading-relaxed text-muted-foreground lg:max-w-3xl lg:text-lg lg:leading-relaxed">
           Everything here is tuned toward calm guidance—scripture first, kindness always.
         </p>
         {tags.length > 0 && (
@@ -196,43 +184,13 @@ export default async function HomePage() {
 
       <DailyVerseCard verse={dailyVerse} liveScripture={liveDailyScripture} />
 
-      <ReflectionCard
-        key={reflectionRowId ?? `draft-${entryDate}`}
-        initialBody={reflectionInitial}
-        savedAtLabel={reflectionSavedLabel}
+      <AICompanionCard
+        key={aiCompanionKey}
+        initialSessionId={aiChatSessionId}
+        initialMessages={aiChatMessages}
       />
 
-      <AiCompanionCard
-        sessionId={companionSessionId}
-        messages={companionMessages}
-      />
-
-      <Card className="border-primary/12 shadow-soft">
-        <CardHeader>
-          <CardTitle className="font-display text-xl">Guided growth path</CardTitle>
-          <CardDescription>
-            Personalized journeys—daily scripture, teaching, prayer, and reflection checkpoints.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {[
-            "Anxiety & Peace",
-            "Purpose & Direction",
-            "Building Faith",
-            "Forgiveness",
-            "Marriage & Relationships",
-          ].map((label) => (
-            <Badge key={label} variant="outline">
-              {label}
-            </Badge>
-          ))}
-          <p className="w-full pt-2 text-xs text-muted-foreground">
-            Bible reading + companion chats now persist—guided path scoring comes next.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">
         <Card className="border-primary/12 shadow-soft">
           <CardHeader>
             <CardTitle className="font-display text-lg">Continue reading</CardTitle>

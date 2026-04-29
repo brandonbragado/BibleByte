@@ -20,10 +20,10 @@ export default function SettingsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
           Settings
         </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-fluid-page-title font-semibold">
           Preferences & privacy
         </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground lg:text-base">
           {/* TODO[NIV_LICENSE]: Surfacing publisher attribution */}
           Manage reminders, analytics consent, and snippet payloads—native Expo builds extend this shell.
         </p>

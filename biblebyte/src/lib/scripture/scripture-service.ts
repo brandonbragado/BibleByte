@@ -1,11 +1,10 @@
 import {
   allowOfflineBundles,
   isNivScriptureLicenseApproved,
-  SCRIPTURE_DEFAULT_ATTRIBUTION,
-  SCRIPTURE_TRANSLATION_LABEL,
 } from "@/config/scripture";
 import type { BibleBookMeta } from "@/lib/bible/canon";
 import { getBookByCode } from "@/lib/bible/canon";
+import { buildApiBibleAttribution } from "@/lib/scripture/attribution";
 import {
   getChapterById,
   getPassage,
@@ -173,19 +172,6 @@ export async function loadChapterFromApiBible(
   const bibleMeta = bibles.find((b) => b.id === bibleId);
   const { verses, reference, copyright } = await resolveApiChapter(bibleId, canon, chapterNum);
 
-  const usingNiv =
-    isNivScriptureLicenseApproved() &&
-    process.env.API_BIBLE_NIV_BIBLE_ID?.trim() === bibleId;
-
-  const detailParts = [
-    bibleMeta?.name ?? "API.Bible",
-    copyright?.trim() || undefined,
-    usingNiv
-      ? "NIV enabled per license flags — honor API.Bible & publisher terms."
-      : "Translation via API.Bible — not NIV unless NIV license + API_BIBLE_NIV_BIBLE_ID active.",
-    SCRIPTURE_DEFAULT_ATTRIBUTION,
-  ].filter(Boolean);
-
   return {
     bookCode: canon.code,
     bookName: canon.name,
@@ -195,17 +181,25 @@ export async function loadChapterFromApiBible(
     isPlaceholder: verses.length === 0,
     suppressOfflineBundle: !allowOfflineBundles(),
     reference,
-    attribution: {
-      translationLabel: bibleMeta?.abbreviation ?? bibleMeta?.name ?? SCRIPTURE_TRANSLATION_LABEL,
-      detail: detailParts.join(" · "),
-      requiresVisibleAttribution: true,
-    },
+    attribution: buildApiBibleAttribution({
+      bibleMeta,
+      copyright,
+      activeBibleId: bibleId,
+    }),
   };
 }
 
 export async function searchActiveBible(query: string): Promise<SearchResponseData> {
   const bibleId = getActiveBibleId();
-  return searchBible(bibleId, query);
+  return searchScriptureForBible(bibleId, query);
+}
+
+export async function searchScriptureForBible(
+  bibleId: string,
+  query: string,
+  limit = 20
+): Promise<SearchResponseData> {
+  return searchBible(bibleId, query, String(limit));
 }
 
 export async function loadPassageFromApiBible(passageId: string) {
@@ -215,29 +209,25 @@ export async function loadPassageFromApiBible(passageId: string) {
 
 /** Passage JSON for the reader — parses HTML into verses like chapter loads. */
 export async function loadPassageReaderPayload(passageId: string): Promise<ScripturePassagePayload> {
+  const bibleId = getActiveBibleId();
+  return loadPassageReaderPayloadForBible(bibleId, passageId);
+}
+
+/** Explicit bible edition (e.g. from catalog) + passage id — `GET /api/scripture/passage`. */
+export async function loadPassageReaderPayloadForBible(
+  bibleId: string,
+  passageId: string
+): Promise<ScripturePassagePayload> {
+  const trimmedBible = bibleId.trim();
   const trimmed = passageId.trim();
-  if (!trimmed) {
-    throw new ScriptureApiError("Missing passage id.", "invalid_params", 400);
+  if (!trimmedBible || !trimmed) {
+    throw new ScriptureApiError("Missing bible or passage id.", "invalid_params", 400);
   }
 
-  const passage = await loadPassageFromApiBible(trimmed);
+  const passage = await getPassage(trimmedBible, trimmed);
   const verses = parseVersesFromChapterHtml(passage.content ?? "");
-  const bibleId = getActiveBibleId();
   const bibles = await listBibles();
-  const bibleMeta = bibles.find((b) => b.id === bibleId);
-
-  const usingNiv =
-    isNivScriptureLicenseApproved() &&
-    process.env.API_BIBLE_NIV_BIBLE_ID?.trim() === bibleId;
-
-  const detailParts = [
-    bibleMeta?.name ?? "API.Bible",
-    passage.copyright?.trim() || undefined,
-    usingNiv
-      ? "NIV enabled per license flags — honor API.Bible & publisher terms."
-      : "Translation via API.Bible — not NIV unless NIV license + API_BIBLE_NIV_BIBLE_ID active.",
-    SCRIPTURE_DEFAULT_ATTRIBUTION,
-  ].filter(Boolean);
+  const bibleMeta = bibles.find((b) => b.id === trimmedBible);
 
   return {
     passageId: passage.id,
@@ -247,11 +237,11 @@ export async function loadPassageReaderPayload(passageId: string): Promise<Scrip
     isPlaceholder: verses.length === 0,
     suppressOfflineBundle: !allowOfflineBundles(),
     copyright: passage.copyright,
-    attribution: {
-      translationLabel: bibleMeta?.abbreviation ?? bibleMeta?.name ?? SCRIPTURE_TRANSLATION_LABEL,
-      detail: detailParts.join(" · "),
-      requiresVisibleAttribution: true,
-    },
+    attribution: buildApiBibleAttribution({
+      bibleMeta,
+      copyright: passage.copyright,
+      activeBibleId: trimmedBible,
+    }),
   };
 }
 

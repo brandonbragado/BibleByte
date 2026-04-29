@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
+import { sanitizeBibleId } from "@/lib/scripture/sanitize";
 import { getActiveBibleId, loadBooksForBible } from "@/lib/scripture/scripture-service";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
@@ -14,10 +15,14 @@ export async function GET(req: Request) {
   if (modeBlock) return modeBlock;
 
   const { searchParams } = new URL(req.url);
-  const bibleIdParam = searchParams.get("bibleId")?.trim();
+  const rawBible = searchParams.get("bibleId");
+  const sanitized = sanitizeBibleId(rawBible);
+  if (rawBible?.trim() && !sanitized) {
+    return NextResponse.json({ error: "invalid_bible_id", code: "invalid_query" }, { status: 400 });
+  }
 
   try {
-    const bibleId = bibleIdParam || getActiveBibleId();
+    const bibleId = sanitized ?? getActiveBibleId();
     const data = await loadBooksForBible(bibleId);
     return NextResponse.json(
       { data, bibleId },

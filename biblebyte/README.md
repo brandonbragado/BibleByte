@@ -23,6 +23,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### API.Bible (Next.js only)
+
+Scripture from **API.Bible** is loaded **only on the Next.js server**: `API_BIBLE_KEY` and bible ids live in **`.env.local` / Vercel env**, and the browser calls **`/api/scripture/*`** routes. **Supabase does not proxy API.Bible** and does not store the API key. Supabase still holds app data (e.g. `daily_verses` **reference** text for the home card—not API.Bible credentials).
+
 ## Supabase configuration
 
 1. Create a Supabase project and run migrations in order (SQL editor or CLI):
@@ -32,6 +36,7 @@ Open [http://localhost:3000](http://localhost:3000).
    - `supabase/migrations/004_tier2_journal_daily_verse.sql` (`prayers`, `journal_entries`, `daily_verses` + seed)
    - `supabase/migrations/005_tier3_personalization.sql` (preferences columns, `analytics_events`, `push_devices`, `daily_verses` read scope)
    - `supabase/migrations/006_scripture_license_markers.sql` (COMMENT markers on `daily_verses` — TODO[NIV_LICENSE])
+   - `supabase/migrations/007_profile_identity.sql` (`first_name`, `last_name`, `phone` on `user_profiles`)
 2. **Authentication → Providers**: enable Google and Apple; add redirect URLs:
    - `http://localhost:3000/auth/callback`
    - `https://<your-vercel-domain>/auth/callback`
@@ -48,14 +53,15 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/onboarding` | 5-step spiritual profile |
 | `/home` | Primary experience; optional **live daily verse** via `HOME_DAILY_VERSE_USE_SCRIPTURE_API` + `api_bible` |
 | `/bible`, `/journal`, `/profile`, `/settings` | Bible reader + Tier 3 personalization surfaces |
-| `POST /api/chat` | Companion (theology-safe JSON; OpenAI optional) |
+| `POST /api/ai/chat` | BibleByte AI companion (auth required; OpenAI server-side; session + history in Supabase — apply migration `008_chat_messages_text_user.sql`) |
 | `POST /api/analytics` | Opt-in analytics events (`analytics_opt_in` must be true) |
 | `GET /api/snippet/today` | Public JSON snippet for widgets / Expo — withholds body until `SCRIPTURE_ALLOW_LICENSED_TEXT_WIDGETS` |
 | `GET /api/scripture/chapters?book=GEN&chapter=1` | Chapter JSON — `api_bible` uses API.Bible; optional **`API_BIBLE_PLACEHOLDER_ON_UPSTREAM_ERROR`** returns mock text if auth/upstream fails |
 | `GET /api/scripture/bibles` | Bible catalog — **only when `SCRIPTURE_PROVIDER_MODE=api_bible`** (else HTTP 503 `scripture_mode_required`) |
 | `GET /api/scripture/books?bibleId=` | Books for a Bible id — **same mode gate**; optional `bibleId` defaults to active edition |
-| `GET /api/scripture/passages?passageId=` | Passage reader JSON (parsed verses + attribution) — **same mode gate** |
-| `GET /api/scripture/search?query=` | Search active Bible — **same mode gate** (min query length server-side) |
+| `GET /api/scripture/passages?passageId=` | Passage reader JSON — optional `bibleId`; defaults to active edition |
+| `GET /api/scripture/passage?bibleId=&passageId=` | Same payload — explicit Bible + passage (mobile/BFF friendly) |
+| `GET /api/scripture/search?query=` | Search — optional `bibleId`, `limit` (1–50); **same mode gate** |
 | `/bible/passage?passageId=` | In-app passage reader (e.g. deep link from search); uses `/api/scripture/passages` |
 | `POST /api/push/register` | Upserts Expo/APNs/FCM device token (`push_devices`; migration 005) |
 | `GET /api/cron/reminders` | `Authorization: Bearer $CRON_SECRET` — resolves UTC-minute reminders (`dispatched` stays `0` until `TODO[APNs_FCM]`) |
@@ -88,7 +94,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Critical readiness checklist (items 1–7)
 
-1. **Migrations applied & verified** — Run `001`–`005` in Supabase SQL editor or CLI **for the same project** your env points at; run `npm run verify:migrations` (files) **and** `npm run verify:schema` (remote schema). CI runs filesystem verification only — schema probe needs secrets.
+1. **Migrations applied & verified** — Apply `001`–`008` in Supabase for the same project your env points at; run `npm run verify:migrations` (files) **and** `npm run verify:schema` (remote schema). CI runs filesystem verification only — schema probe needs secrets.
 2. **Licensed scripture** — Keep placeholders until publisher/API clears rights ([`docs/LICENSING_SCRIPTURE.md`](docs/LICENSING_SCRIPTURE.md), `src/config/scripture.ts`, `TODO[NIV_LICENSE]` in migrations).
 3. **Push & reminders** — Hooks: [`docs/PUSH_REMINDERS.md`](docs/PUSH_REMINDERS.md). Set `CRON_SECRET`; deploy includes [`vercel.json`](vercel.json) cron hitting `/api/cron/reminders`. Cron counts eligible users/devices; **`dispatched`** stays `0` until FCM/APNs + Expo (`TODO[APNs_FCM]`).
 4. **Account deletion** — Settings → Delete account requires `SUPABASE_SERVICE_ROLE_KEY` server-side only (never expose to clients).

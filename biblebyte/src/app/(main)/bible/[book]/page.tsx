@@ -40,7 +40,7 @@ export default async function BibleBookPage({ params }: Props) {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
           {book.testament === "OT" ? "Old Testament" : "New Testament"}
         </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">{book.name}</h1>
+        <h1 className="font-display text-fluid-page-title font-semibold">{book.name}</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
           Select a chapter. Verse bodies are placeholders until scripture licensing is configured.
         </p>

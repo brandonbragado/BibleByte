@@ -2,22 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 
-import { generateCompanionBlocks } from "@/lib/companion/llm";
+import {
+  COMPANION_CONTEXT_MESSAGE_LIMIT,
+  generateCompanionBlocks,
+} from "@/lib/companion/llm";
+import { companionRowsToChatMessages } from "@/lib/companion/message-format";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CompanionAssistantContent,
   CompanionBlocks,
+  CompanionMessageRow,
   CompanionUserContent,
 } from "@/types/companion";
 
 const HOME_SESSION_TITLE = "Home companion";
 
-export type CompanionMessageRow = {
-  id: string;
-  role: string;
-  content: CompanionUserContent | CompanionAssistantContent | Record<string, unknown>;
-  created_at: string;
-};
+export type { CompanionMessageRow } from "@/types/companion";
 
 export type SendCompanionResult =
   | { ok: true; blocks: CompanionBlocks; demo: boolean }
@@ -130,11 +130,29 @@ export async function sendCompanionMessage(
     };
   }
 
+  const { data: recent, error: recentErr } = await supabase
+    .from("chat_messages")
+    .select("id, role, content, created_at")
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(COMPANION_CONTEXT_MESSAGE_LIMIT);
+
+  if (recentErr) {
+    console.error(recentErr);
+    return {
+      ok: false,
+      error: "Could not load conversation for context.",
+    };
+  }
+
+  const chronological = [...(recent ?? [])].reverse() as CompanionMessageRow[];
+  const conversationTurns = companionRowsToChatMessages(chronological);
+
   let blocks: CompanionBlocks;
   let demo: boolean;
 
   try {
-    const result = await generateCompanionBlocks(text);
+    const result = await generateCompanionBlocks(conversationTurns);
     blocks = result.blocks;
     demo = result.demo;
   } catch (e) {

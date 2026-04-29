@@ -1,18 +1,11 @@
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
+import { COMPANION_SYSTEM_PROMPT } from "@/lib/companion/system-prompt";
 import type { CompanionBlocks } from "@/types/companion";
 
-const SYSTEM_PROMPT = `You are BibleByte's spiritual companion assistant.
-Rules:
-- Never claim divine revelation or prophetic certainty.
-- Never replace pastors, elders, or licensed mental health professionals.
-- Avoid dogmatic certainty on disputed Christian doctrines; prefer scripture + humility.
-- Stay denomination-neutral and compassionate.
-- Ground encouragement in scripture themes (cite references when helpful).
-- Respond ONLY as a JSON object with keys: "understanding", "scripture", "application", "prayer" (all strings).
-- Keep each section concise (under ~120 words).
-- Do not invent personal details about the user.
-`;
+/** Max persisted messages loaded as context (user + assistant pairs). */
+export const COMPANION_CONTEXT_MESSAGE_LIMIT = 24;
 
 const PLACEHOLDER: CompanionBlocks = {
   understanding:
@@ -25,12 +18,29 @@ const PLACEHOLDER: CompanionBlocks = {
     "Lord Jesus, thank You for staying near in uncertainty. Teach me to listen for Your kindness today.",
 };
 
-export async function generateCompanionBlocks(prompt: string): Promise<{
-  blocks: CompanionBlocks;
-  demo: boolean;
-}> {
-  const trimmed = prompt.trim();
-  if (!trimmed) {
+function parseBlocksFromContent(raw: string): CompanionBlocks {
+  const parsed = JSON.parse(raw) as Record<string, string>;
+  return {
+    understanding: parsed.understanding ?? "",
+    scripture: parsed.scripture ?? "",
+    application: parsed.application ?? "",
+    prayer: parsed.prayer ?? "",
+  };
+}
+
+/**
+ * Full companion completion: system prompt + optional multi-turn history.
+ * `conversationTurns` must be user/assistant only (no system); oldest first.
+ */
+export async function generateCompanionBlocks(
+  conversationTurns: ChatCompletionMessageParam[]
+): Promise<{ blocks: CompanionBlocks; demo: boolean }> {
+  if (!conversationTurns.length) {
+    return { blocks: PLACEHOLDER, demo: true };
+  }
+
+  const last = conversationTurns[conversationTurns.length - 1];
+  if (last.role !== "user" || !String(last.content ?? "").trim()) {
     return { blocks: PLACEHOLDER, demo: true };
   }
 
@@ -45,14 +55,16 @@ export async function generateCompanionBlocks(prompt: string): Promise<{
 
   const client = new OpenAI({ apiKey });
 
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: COMPANION_SYSTEM_PROMPT },
+    ...conversationTurns,
+  ];
+
   const completion = await client.chat.completions.create({
     model: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
     temperature: 0.65,
     response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: trimmed },
-    ],
+    messages,
   });
 
   const raw = completion.choices[0]?.message?.content;
@@ -60,13 +72,6 @@ export async function generateCompanionBlocks(prompt: string): Promise<{
     throw new Error("Empty completion");
   }
 
-  const parsed = JSON.parse(raw) as Record<string, string>;
-  const blocks: CompanionBlocks = {
-    understanding: parsed.understanding ?? "",
-    scripture: parsed.scripture ?? "",
-    application: parsed.application ?? "",
-    prayer: parsed.prayer ?? "",
-  };
-
+  const blocks = parseBlocksFromContent(raw);
   return { blocks, demo: false };
 }

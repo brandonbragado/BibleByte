@@ -32,10 +32,14 @@ function recoverableApiBibleFailure(e: ScriptureApiError): boolean {
   return (
     e.status === 401 ||
     e.status === 403 ||
+    e.status === 429 ||
     e.status === 502 ||
     e.status === 503 ||
+    e.status === 504 ||
     e.code === "missing_api_key" ||
-    e.code === "upstream_error"
+    e.code === "upstream_error" ||
+    e.code === "upstream_timeout" ||
+    e.code === "upstream_rate_limited"
   );
 }
 

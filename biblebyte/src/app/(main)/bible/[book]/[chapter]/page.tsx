@@ -62,7 +62,7 @@ export default async function BibleChapterReaderPage({ params }: Props) {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
           {book.name}
         </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-fluid-page-title font-semibold">
           Chapter {chapter}
         </h1>
         <p className="text-sm text-muted-foreground">

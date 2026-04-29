@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: Props) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-16">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(79,111,82,0.1)_0%,_transparent_50%)]" />
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md sm:max-w-lg">
         <div className="mb-10 text-center">
           <Link
             href="/"

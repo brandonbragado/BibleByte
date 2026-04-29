@@ -27,10 +27,10 @@ export default function BibleIndexPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/85">
             Bible
           </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">
+          <h1 className="font-display text-fluid-page-title font-semibold">
             Choose a book
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
             Pick a book below or search your active Bible edition. Text is fetched through
             BibleByte API routes (never API.Bible from the browser). Your last passage syncs
             to Continue reading on Home.
@@ -48,7 +48,7 @@ export default function BibleIndexPage() {
           <CardDescription>Hebrew Scriptures</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">
             {ot.map((b) => (
               <li key={b.code}>
                 <Link
@@ -70,7 +70,7 @@ export default function BibleIndexPage() {
           <CardDescription>Apostolic writings</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">
             {nt.map((b) => (
               <li key={b.code}>
                 <Link

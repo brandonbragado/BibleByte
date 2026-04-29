@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
-import { loadPassageReaderPayload } from "@/lib/scripture/scripture-service";
+import { sanitizeBibleId, sanitizePassageId } from "@/lib/scripture/sanitize";
+import { getActiveBibleId, loadPassageReaderPayloadForBible } from "@/lib/scripture/scripture-service";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
-/** Proxies `GET /v1/bibles/{bibleId}/passages/{passageId}` — returns parsed `verses` for the reader. */
+/**
+ * Proxies `GET /v1/bibles/{bibleId}/passages/{passageId}` — returns parsed `verses` for the reader.
+ * Optional `bibleId` defaults to the active edition; prefer `/api/scripture/passage` for explicit ids.
+ */
 export async function GET(req: Request) {
   const limited = rateLimitResponse(req, "scripture");
   if (limited) return limited;
@@ -14,15 +18,25 @@ export async function GET(req: Request) {
   if (modeBlock) return modeBlock;
 
   const { searchParams } = new URL(req.url);
-  const passageId = searchParams.get("passageId")?.trim();
-  if (!passageId) {
-    return NextResponse.json({ error: "missing_passage_id", code: "invalid_query" }, { status: 400 });
+  const passageParam = sanitizePassageId(searchParams.get("passageId"));
+  if (!passageParam) {
+    return NextResponse.json(
+      { error: "missing_or_invalid_passage_id", code: "invalid_query" },
+      { status: 400 }
+    );
+  }
+
+  const rawBible = searchParams.get("bibleId");
+  const bibleOverride = sanitizeBibleId(rawBible);
+  if (rawBible?.trim() && !bibleOverride) {
+    return NextResponse.json({ error: "invalid_bible_id", code: "invalid_query" }, { status: 400 });
   }
 
   try {
-    const data = await loadPassageReaderPayload(passageId);
+    const bibleId = bibleOverride ?? getActiveBibleId();
+    const data = await loadPassageReaderPayloadForBible(bibleId, passageParam);
     return NextResponse.json(
-      { data },
+      { data, bibleId },
       {
         headers: {
           "Cache-Control": "private, no-store",

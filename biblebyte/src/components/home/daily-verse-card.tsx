@@ -36,16 +36,18 @@ export function DailyVerseCard({ verse, liveScripture }: Props) {
 
   return (
     <Card className="overflow-hidden border-primary/15 shadow-soft">
-      <div className="relative aspect-[16/10] bg-gradient-to-br from-primary/25 via-muted to-gold/15">
+      <div className="relative h-[clamp(13rem,52vw,26rem)] max-h-[min(72vh,34rem)] min-h-[13rem] w-full bg-gradient-to-br from-primary/25 via-muted to-gold/15 sm:h-[clamp(14rem,42vw,28rem)] sm:max-h-[min(70vh,36rem)] sm:min-h-[14rem] lg:h-[clamp(15rem,36vw,30rem)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
-        <div className="absolute inset-x-6 bottom-6 rounded-2xl bg-background/85 p-5 shadow-soft backdrop-blur-md md:inset-x-10">
+        <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-background/85 p-4 shadow-soft backdrop-blur-md sm:inset-x-6 sm:bottom-5 sm:p-5 md:inset-x-8 md:bottom-6 lg:inset-x-10 lg:p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">Daily verse</p>
           {live ? (
             <p className="mt-2 text-[11px] font-medium text-primary/90" role="status">
               Loaded via API.Bible for today’s reference
             </p>
           ) : null}
-          <p className="mt-3 font-display text-xl leading-snug text-foreground whitespace-pre-wrap">{body}</p>
+          <p className="mt-3 font-display text-lg leading-snug text-foreground whitespace-pre-wrap sm:text-xl lg:text-[1.35rem]">
+            {body}
+          </p>
           <p className="mt-2 text-sm font-medium text-muted-foreground">Reference · {reference}</p>
           <ScriptureAttribution
             className="mt-2 border-border/40"

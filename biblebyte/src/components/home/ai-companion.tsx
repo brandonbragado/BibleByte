@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { sendCompanionMessage } from "@/app/(main)/home/companion-actions";
-import type { CompanionMessageRow } from "@/app/(main)/home/companion-actions";
+import type { CompanionMessageRow } from "@/types/companion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +123,7 @@ export function AiCompanionCard({ sessionId, messages }: Props) {
         </CardTitle>
         <CardDescription className="text-base leading-relaxed">
           Grounded in scripture, generous in tone—never claiming revelation, never replacing pastors or counselors.
-          Replies persist to this device while you are signed in.
+          Your recent messages are sent with each question so follow-ups stay in context.
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">

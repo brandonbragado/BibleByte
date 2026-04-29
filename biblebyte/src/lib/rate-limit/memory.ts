@@ -26,7 +26,8 @@ export type RateLimitScope =
   | "snippet"
   | "scripture"
   | "push_register"
-  | "delete_account";
+  | "delete_account"
+  | "profile_identity";
 
 export function resolveLimit(scope: RateLimitScope): number {
   const envMap: Record<RateLimitScope, string | undefined> = {
@@ -36,6 +37,7 @@ export function resolveLimit(scope: RateLimitScope): number {
     scripture: process.env.RATE_LIMIT_SCRIPTURE_PER_MINUTE,
     push_register: process.env.RATE_LIMIT_PUSH_REGISTER_PER_MINUTE,
     delete_account: process.env.RATE_LIMIT_ACCOUNT_DELETE_PER_MINUTE,
+    profile_identity: process.env.RATE_LIMIT_PROFILE_IDENTITY_PER_MINUTE,
   };
   const defaults: Record<RateLimitScope, number> = {
     chat: 30,
@@ -44,6 +46,7 @@ export function resolveLimit(scope: RateLimitScope): number {
     scripture: 90,
     push_register: 10,
     delete_account: 3,
+    profile_identity: 30,
   };
   const raw = envMap[scope];
   const n = raw ? Number.parseInt(raw, 10) : defaults[scope];

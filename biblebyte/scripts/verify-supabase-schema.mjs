@@ -55,6 +55,24 @@ const CHECKS = [
     migration: "005_tier3_personalization.sql",
   },
   {
+    label: "007 profile identity",
+    table: "user_profiles",
+    columns: "id, first_name, last_name, phone",
+    migration: "007_profile_identity.sql",
+  },
+  {
+    label: "008 chat_sessions",
+    table: "chat_sessions",
+    columns: "id, user_id, title",
+    migration: "008_chat_messages_text_user.sql",
+  },
+  {
+    label: "008 chat_messages (text + user_id)",
+    table: "chat_messages",
+    columns: "id, session_id, user_id, role, content",
+    migration: "008_chat_messages_text_user.sql",
+  },
+  {
     label: "005 analytics_events",
     table: "analytics_events",
     columns: "id, name",
