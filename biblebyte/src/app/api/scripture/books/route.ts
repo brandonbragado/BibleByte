@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
 import { sanitizeBibleId } from "@/lib/scripture/sanitize";
-import { getActiveBibleId, loadBooksForBible } from "@/lib/scripture/scripture-service";
+import { loadBooksForBible, resolveRequestedBibleId } from "@/lib/scripture/scripture-service";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
-/** Proxies `GET /v1/bibles/{bibleId}/books` — optional `bibleId` query defaults to active edition. */
+/** Proxies NIV-only `GET /v1/bibles/{bibleId}/books`; optional `bibleId` must match active NIV id. */
 export async function GET(req: Request) {
   const limited = rateLimitResponse(req, "scripture");
   if (limited) return limited;
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const bibleId = sanitized ?? getActiveBibleId();
+    const bibleId = resolveRequestedBibleId(sanitized);
     const data = await loadBooksForBible(bibleId);
     return NextResponse.json(
       { data, bibleId },

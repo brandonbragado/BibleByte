@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isRetryableApiBibleStatus } from "@/lib/scripture/api-bible-http";
 import {
@@ -40,5 +40,48 @@ describe("api-bible-http helpers", () => {
     expect(isRetryableApiBibleStatus(502)).toBe(true);
     expect(isRetryableApiBibleStatus(503)).toBe(true);
     expect(isRetryableApiBibleStatus(401)).toBe(false);
+  });
+});
+
+describe("active Bible id policy", () => {
+  const OLD_NIV_ID = process.env.API_BIBLE_NIV_BIBLE_ID;
+  const OLD_LICENSE = process.env.NIV_SCRIPTURE_LICENSE_APPROVED;
+
+  afterEach(() => {
+    process.env.API_BIBLE_NIV_BIBLE_ID = OLD_NIV_ID;
+    process.env.NIV_SCRIPTURE_LICENSE_APPROVED = OLD_LICENSE;
+    vi.resetModules();
+  });
+
+  it("withholds API.Bible text until NIV licensing is approved", async () => {
+    process.env.API_BIBLE_NIV_BIBLE_ID = "niv-id";
+    process.env.NIV_SCRIPTURE_LICENSE_APPROVED = "false";
+    vi.resetModules();
+
+    const { getActiveBibleId, ScriptureApiError } = await import(
+      "@/lib/scripture/scripture-service"
+    ).then(async (mod) => ({
+      ...mod,
+      ScriptureApiError: (await import("@/lib/scripture/types")).ScriptureApiError,
+    }));
+
+    expect(() => getActiveBibleId()).toThrow(ScriptureApiError);
+    try {
+      getActiveBibleId();
+    } catch (e) {
+      expect(e).toMatchObject({ code: "niv_not_licensed", status: 503 });
+    }
+  });
+
+  it("rejects alternate Bible ids when NIV is active", async () => {
+    process.env.API_BIBLE_NIV_BIBLE_ID = "niv-id";
+    process.env.NIV_SCRIPTURE_LICENSE_APPROVED = "true";
+    vi.resetModules();
+
+    const { resolveRequestedBibleId } = await import("@/lib/scripture/scripture-service");
+
+    expect(resolveRequestedBibleId()).toBe("niv-id");
+    expect(resolveRequestedBibleId("niv-id")).toBe("niv-id");
+    expect(() => resolveRequestedBibleId("other-id")).toThrow(/NIV-only/);
   });
 });

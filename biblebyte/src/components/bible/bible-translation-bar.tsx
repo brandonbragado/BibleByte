@@ -124,32 +124,16 @@ export function BibleTranslationBar() {
                 )}
               >
                 <ChevronDown className="bb-disclosure-chevron size-3.5 shrink-0" aria-hidden />
-                Edition id &amp; other translations
+                NIV edition details
               </summary>
               <div className="mt-2 space-y-2 rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs">
                 <p className="break-all font-mono text-[11px] leading-snug text-muted-foreground">
                   {activeMeta.id}
                 </p>
-                {list.length > 1 ? (
-                  <div>
-                    <p className="font-medium text-foreground/85">
-                      Also available with this app ({list.length} total)
-                    </p>
-                    <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto text-muted-foreground">
-                      {list.map((b) => (
-                        <li key={b.id} className="truncate">
-                          <span className="text-foreground/80">{b.name}</span>
-                          {b.abbreviation ? (
-                            <span className="text-muted-foreground"> · {b.abbreviation}</span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">
-                      Switching the default is done in server configuration.
-                    </p>
-                  </div>
-                ) : null}
+                <p className="text-[11px] text-muted-foreground">
+                  BibleByte is configured for NIV-only delivery. Alternate translation catalogs and
+                  switching are intentionally unavailable in the MVP.
+                </p>
               </div>
             </details>
           </>

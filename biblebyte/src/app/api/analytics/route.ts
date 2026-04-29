@@ -4,11 +4,14 @@ import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { createClient } from "@/lib/supabase/server";
 
 const ALLOWED_NAMES = new Set([
+  "onboarding_started",
+  "onboarding_completed",
   "reflection_saved",
   "snippet_viewed",
   "notification_opened",
   "lesson_started",
   "lesson_completed",
+  "streak_updated",
 ]);
 
 export async function POST(req: Request) {

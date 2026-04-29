@@ -3,12 +3,15 @@ import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
 import { sanitizeBibleId, sanitizePassageId } from "@/lib/scripture/sanitize";
-import { getActiveBibleId, loadPassageReaderPayloadForBible } from "@/lib/scripture/scripture-service";
+import {
+  loadPassageReaderPayloadForBible,
+  resolveRequestedBibleId,
+} from "@/lib/scripture/scripture-service";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
 /**
- * `GET /api/scripture/passage?bibleId=&passageId=` — explicit Bible edition + passage id.
- * When `bibleId` is omitted, uses the active edition from env (same as `/passages`).
+ * `GET /api/scripture/passage?bibleId=&passageId=` — NIV-only passage reader.
+ * When `bibleId` is provided, it must match the active NIV edition.
  */
 export async function GET(req: Request) {
   const limited = rateLimitResponse(req, "scripture");
@@ -31,7 +34,7 @@ export async function GET(req: Request) {
 
   let bibleId: string;
   try {
-    bibleId = bibleParam ?? getActiveBibleId();
+    bibleId = resolveRequestedBibleId(bibleParam);
   } catch (e) {
     if (e instanceof ScriptureApiError) {
       return NextResponse.json({ error: e.message, code: e.code }, { status: e.status });

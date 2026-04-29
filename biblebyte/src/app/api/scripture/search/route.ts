@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
 import { sanitizeBibleId, clampSearchLimit, sanitizeSearchQuery } from "@/lib/scripture/sanitize";
-import { getActiveBibleId, searchScriptureForBible } from "@/lib/scripture/scripture-service";
+import {
+  resolveRequestedBibleId,
+  searchScriptureForBible,
+} from "@/lib/scripture/scripture-service";
 import type { SearchResult } from "@/lib/scripture/types";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
-/** Proxies `GET /v1/bibles/{bibleId}/search?query=` — never logs full verse text. */
+/** Proxies NIV-only `GET /v1/bibles/{bibleId}/search?query=` — never logs full verse text. */
 export async function GET(req: Request) {
   const limited = rateLimitResponse(req, "scripture");
   if (limited) return limited;
@@ -30,7 +33,7 @@ export async function GET(req: Request) {
   const limit = clampSearchLimit(searchParams.get("limit"));
 
   try {
-    const bibleId = bibleOverride ?? getActiveBibleId();
+    const bibleId = resolveRequestedBibleId(bibleOverride);
     const raw = await searchScriptureForBible(bibleId, query, limit);
     const verses = raw.verses ?? [];
     const results: SearchResult[] = verses.map((v) => ({

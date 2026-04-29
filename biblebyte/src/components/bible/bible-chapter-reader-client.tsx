@@ -90,8 +90,8 @@ export function BibleChapterReaderClient({
         <CardContent className="text-sm text-muted-foreground">
           <p>
             For API.Bible mode, set <code className="rounded bg-muted px-1">API_BIBLE_KEY</code> and{" "}
-            <code className="rounded bg-muted px-1">API_BIBLE_DEFAULT_BIBLE_ID</code> in{" "}
-            <code className="rounded bg-muted px-1">.env.local</code>, and{" "}
+            <code className="rounded bg-muted px-1">API_BIBLE_NIV_BIBLE_ID</code> in{" "}
+            <code className="rounded bg-muted px-1">.env.local</code> after NIV licensing clears, then enable{" "}
             <code className="rounded bg-muted px-1">SCRIPTURE_PROVIDER_MODE=api_bible</code>. While you wait on API
             access, set{" "}
             <code className="rounded bg-muted px-1">API_BIBLE_PLACEHOLDER_ON_UPSTREAM_ERROR=true</code> to load mock

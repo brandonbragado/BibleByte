@@ -25,32 +25,41 @@ import type {
 } from "@/lib/scripture/types";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
-/** Resolve bible id: NIV only when legally approved + env set; else default translation id. */
+/** Resolve bible id: NIV only when legally approved + env set. */
 export function getActiveBibleId(): string {
   const niv = process.env.API_BIBLE_NIV_BIBLE_ID?.trim();
-  const def = process.env.API_BIBLE_DEFAULT_BIBLE_ID?.trim();
 
-  if (isNivScriptureLicenseApproved() && niv) {
-    return niv;
-  }
-
-  if (!def) {
+  if (!isNivScriptureLicenseApproved()) {
     throw new ScriptureApiError(
-      "Set API_BIBLE_DEFAULT_BIBLE_ID (and API_BIBLE_NIV_BIBLE_ID when NIV is cleared).",
-      "missing_bible_id",
-      503
-    );
-  }
-
-  if (niv && def === niv && !isNivScriptureLicenseApproved()) {
-    throw new ScriptureApiError(
-      "Default Bible id matches API_BIBLE_NIV_BIBLE_ID but NIV_SCRIPTURE_LICENSE_APPROVED is false.",
+      "NIV scripture delivery requires NIV_SCRIPTURE_LICENSE_APPROVED=true; use placeholder providers until licensing clears.",
       "niv_not_licensed",
       503
     );
   }
 
-  return def;
+  if (!niv) {
+    throw new ScriptureApiError(
+      "Set API_BIBLE_NIV_BIBLE_ID after NIV licensing is approved.",
+      "missing_niv_bible_id",
+      503
+    );
+  }
+
+  return niv;
+}
+
+/** Reject translation switching; every API.Bible surface must use the active NIV id. */
+export function resolveRequestedBibleId(requestedBibleId?: string | null): string {
+  const active = getActiveBibleId();
+  const requested = requestedBibleId?.trim();
+  if (requested && requested !== active) {
+    throw new ScriptureApiError(
+      "BibleByte is configured for NIV-only delivery; alternate Bible ids are not supported.",
+      "translation_switching_disabled",
+      400
+    );
+  }
+  return active;
 }
 
 /** Remove a cut-off tag opener at segment end (regex splits can leave `<span` with no `>`; `<[^>]+>` won't match it). */
@@ -293,7 +302,9 @@ export async function loadPassageReaderPayloadForBible(
 }
 
 export async function loadBiblesCatalog(): Promise<Bible[]> {
-  return listBibles();
+  const activeBibleId = getActiveBibleId();
+  const bibles = await listBibles();
+  return bibles.filter((b) => b.id === activeBibleId);
 }
 
 export async function loadBooksForBible(bibleId: string): Promise<Book[]> {

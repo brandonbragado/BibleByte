@@ -50,7 +50,7 @@ export function BibleSearchPanel() {
       setResults(list);
       if (list.length === 0) {
         setEmptyHint(
-          "No verses matched. Try other words, or set SCRIPTURE_PROVIDER_MODE=api_bible with API_BIBLE_KEY and API_BIBLE_DEFAULT_BIBLE_ID."
+          "No verses matched. Try other words, or confirm API.Bible NIV access is configured server-side."
         );
       }
     } catch (e) {

@@ -3,12 +3,15 @@ import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/rate-limit/memory";
 import { scriptureApiBibleModeGuard } from "@/lib/scripture/api-bible-mode-guard";
 import { sanitizeBibleId, sanitizePassageId } from "@/lib/scripture/sanitize";
-import { getActiveBibleId, loadPassageReaderPayloadForBible } from "@/lib/scripture/scripture-service";
+import {
+  loadPassageReaderPayloadForBible,
+  resolveRequestedBibleId,
+} from "@/lib/scripture/scripture-service";
 import { ScriptureApiError } from "@/lib/scripture/types";
 
 /**
  * Proxies `GET /v1/bibles/{bibleId}/passages/{passageId}` — returns parsed `verses` for the reader.
- * Optional `bibleId` defaults to the active edition; prefer `/api/scripture/passage` for explicit ids.
+ * Optional `bibleId` must match the active NIV edition; prefer `/api/scripture/passage` for explicit ids.
  */
 export async function GET(req: Request) {
   const limited = rateLimitResponse(req, "scripture");
@@ -33,7 +36,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const bibleId = bibleOverride ?? getActiveBibleId();
+    const bibleId = resolveRequestedBibleId(bibleOverride);
     const data = await loadPassageReaderPayloadForBible(bibleId, passageParam);
     return NextResponse.json(
       { data, bibleId },

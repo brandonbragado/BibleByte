@@ -17,13 +17,9 @@ export function MainTabContentTransition({ children }: Props) {
   const pathname = usePathname();
   const tabKey = mainTabKeyFromPathname(pathname);
   const reduceMotion = useReducedMotion();
-  const [settledTabKey, setSettledTabKey] = useState<string | null>(null);
+  const [settledTabKey, setSettledTabKey] = useState(tabKey);
 
   useEffect(() => {
-    if (settledTabKey === null) {
-      setSettledTabKey(tabKey);
-      return;
-    }
     if (settledTabKey === tabKey) return;
     const t = window.setTimeout(
       () => setSettledTabKey(tabKey),
@@ -35,7 +31,6 @@ export function MainTabContentTransition({ children }: Props) {
   const playEnter =
     Boolean(
       !reduceMotion &&
-        settledTabKey !== null &&
         settledTabKey !== tabKey
     );
 

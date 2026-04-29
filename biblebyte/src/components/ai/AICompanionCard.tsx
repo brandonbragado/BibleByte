@@ -57,14 +57,6 @@ export function AICompanionCard({ initialSessionId, initialMessages, quickPrompt
     logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
-  /** Sync from server only when session or stored message ids change (not on every new array reference). */
-  const serverTranscriptKey = `${initialSessionId ?? "none"}|${initialMessages.map((m) => m.id).join("|")}`;
-  useEffect(() => {
-    setSessionId(initialSessionId);
-    setMessages(initialMessages);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed by transcript identity only
-  }, [serverTranscriptKey]);
-
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || loading || sendInFlightRef.current) return;
