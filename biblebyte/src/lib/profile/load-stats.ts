@@ -7,6 +7,8 @@ export type ProfileStats = {
   prayersAnswered: number;
   versesSaved: number;
   journalEntries: number;
+  /** Distinct UTC calendar days in the current month with any counted activity. */
+  activityDaysThisUtcMonth: number;
 };
 
 export async function loadProfileStats(supabase: SupabaseClient, userId: string): Promise<ProfileStats> {
@@ -60,10 +62,17 @@ export async function loadProfileStats(supabase: SupabaseClient, userId: string)
 
   const streakDays = computeUtcConsecutiveDayStreak(activityDates, today);
 
+  const monthPrefix = today.slice(0, 7);
+  let activityDaysThisUtcMonth = 0;
+  for (const d of activityDates) {
+    if (d.startsWith(monthPrefix)) activityDaysThisUtcMonth += 1;
+  }
+
   return {
     streakDays,
     prayersAnswered: answeredRes.count ?? 0,
     versesSaved: savedRes.count ?? 0,
     journalEntries: journalCountRes.count ?? 0,
+    activityDaysThisUtcMonth,
   };
 }

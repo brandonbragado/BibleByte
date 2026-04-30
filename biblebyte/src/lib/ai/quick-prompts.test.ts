@@ -7,7 +7,13 @@ import {
 } from "@/lib/ai/quick-prompts";
 
 describe("getRotatingQuickPrompts", () => {
-  it("returns a fixed subset size", () => {
+  it("returns default of five prompts", () => {
+    const p = getRotatingQuickPrompts(new Date("2026-04-27T12:00:00.000Z"));
+    expect(p).toHaveLength(5);
+    expect(new Set(p).size).toBe(5);
+  });
+
+  it("respects explicit count override", () => {
     const p = getRotatingQuickPrompts(new Date("2026-04-27T12:00:00.000Z"), 8);
     expect(p).toHaveLength(8);
     expect(new Set(p).size).toBe(8);

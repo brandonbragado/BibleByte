@@ -5,9 +5,16 @@ import { useRouter } from "next/navigation";
 
 import { ChatInput } from "@/components/ai/ChatInput";
 import { ChatMessage } from "@/components/ai/ChatMessage";
+import { CompanionChatHistoryModal } from "@/components/ai/CompanionChatHistoryModal";
 import { PromptChips } from "@/components/ai/PromptChips";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  COMPANION_PANEL_USER_PROMPTS,
+  panelOmitsOlderMessages,
+  sliceMessagesForLastUserPrompts,
+} from "@/lib/ai/chat-visible-window";
 import type { AiChatMessageDto } from "@/lib/ai/types";
 
 function companionRequestErrorMessage(error: string | undefined, code: string | undefined): string {
@@ -40,9 +47,34 @@ export function AICompanionCard({ initialSessionId, initialMessages, quickPrompt
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [, startTransition] = useTransition();
-  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const logScrollRef = useRef<HTMLDivElement | null>(null);
   const sendInFlightRef = useRef(false);
+  const lastServerSigRef = useRef<string | null>(null);
+
+  const serverSig = useMemo(
+    () =>
+      `${initialSessionId ?? ""}|${initialMessages.map((m) => m.id).join(",")}|${initialMessages.length}`,
+    [initialSessionId, initialMessages]
+  );
+
+  /** After `router.refresh()`, apply RSC props without remounting (see stable `key` on Home). */
+  useEffect(() => {
+    if (lastServerSigRef.current === serverSig) return;
+    lastServerSigRef.current = serverSig;
+    setSessionId(initialSessionId);
+    setMessages(initialMessages);
+  }, [serverSig, initialSessionId, initialMessages]);
+
+  const visibleMessages = useMemo(
+    () => sliceMessagesForLastUserPrompts(messages, COMPANION_PANEL_USER_PROMPTS),
+    [messages]
+  );
+  const hasOlderInPanel = useMemo(
+    () => panelOmitsOlderMessages(messages, COMPANION_PANEL_USER_PROMPTS),
+    [messages]
+  );
 
   const welcome = useMemo(
     () =>
@@ -52,10 +84,19 @@ export function AICompanionCard({ initialSessionId, initialMessages, quickPrompt
     [messages.length]
   );
 
-  /** Keep transcript scrolled to newest turn (user + assistant). */
+  /**
+   * Scroll only the transcript pane — never `scrollIntoView` (that scrolls the whole page).
+   * Depend on the visible slice + loading so “Thinking…” still scrolls into view
+   * without remount-induced jumps.
+   */
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, loading]);
+    const el = logScrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [visibleMessages, loading]);
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -133,8 +174,8 @@ export function AICompanionCard({ initialSessionId, initialMessages, quickPrompt
         <CardTitle className="font-display text-2xl">Companion chat</CardTitle>
         <CardDescription className="text-base leading-relaxed">
           Scripture-grounded, humble, and practical—never replacing pastors or counselors. This space is for the Bible,
-          faith, prayer, and spiritual life; off-topic questions are kindly redirected. Your last messages stay in
-          context for follow-ups.
+          faith, prayer, and spiritual life; off-topic questions are kindly redirected. The thread keeps full history;
+          the panel below shows your last {COMPANION_PANEL_USER_PROMPTS} prompts so it stays compact.
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">
@@ -148,30 +189,50 @@ export function AICompanionCard({ initialSessionId, initialMessages, quickPrompt
           className="flex max-h-[min(360px,50vh)] min-h-[8.5rem] flex-col rounded-2xl border border-border/60 bg-muted/25"
           aria-label="AI companion conversation"
         >
-          <p className="border-b border-border/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Conversation
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Conversation</p>
+              {hasOlderInPanel ? (
+                <p className="text-[10px] text-muted-foreground">
+                  Showing last {COMPANION_PANEL_USER_PROMPTS} prompts — older turns are in full history.
+                </p>
+              ) : null}
+            </div>
+            {messages.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => setHistoryOpen(true)}
+              >
+                Full history
+              </Button>
+            ) : null}
+          </div>
           <div
+            ref={logScrollRef}
             className="flex-1 space-y-4 overflow-y-auto p-3"
             role="log"
             aria-live="polite"
             aria-relevant="additions"
           >
-            {messages.length === 0 && !loading ? (
+            {visibleMessages.length === 0 && !loading ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 No messages yet — use a quick prompt or type below. Replies appear here in order.
               </p>
             ) : (
-              messages.map((m) => <ChatMessage key={m.id} message={m} />)
+              visibleMessages.map((m) => <ChatMessage key={m.id} message={m} />)
             )}
             {loading && (
               <p className="text-center text-xs text-muted-foreground" aria-busy="true">
                 Thinking…
               </p>
             )}
-            <div ref={logEndRef} aria-hidden className="h-px shrink-0" />
           </div>
         </div>
+
+        <CompanionChatHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} messages={messages} />
 
         <PromptChips
           prompts={quickPrompts}

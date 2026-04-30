@@ -46,12 +46,14 @@ export async function updateSession(request: NextRequest) {
   const isCallback = path.startsWith("/auth/callback");
   const isLanding = path === "/";
   const isOnboarding = path.startsWith("/onboarding");
+  const revisitOnboarding = request.nextUrl.searchParams.get("revisit") === "1";
   const isMainApp =
     path.startsWith("/home") ||
     path.startsWith("/bible") ||
     path.startsWith("/journal") ||
     path.startsWith("/profile") ||
-    path.startsWith("/settings");
+    path.startsWith("/settings") ||
+    path.startsWith("/prayer-rhythm");
 
   if (isCallback) {
     return supabaseResponse;
@@ -85,7 +87,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (onboardingDone && isOnboarding) {
+  if (onboardingDone && isOnboarding && !revisitOnboarding) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
     url.searchParams.set("welcome", "1");

@@ -84,6 +84,18 @@ const CHECKS = [
     columns: "user_id, platform, device_token",
     migration: "005_tier3_personalization.sql",
   },
+  {
+    label: "009 prayer_check_ins",
+    table: "prayer_check_ins",
+    columns: "user_id, local_date",
+    migration: "009_prayer_check_ins.sql",
+  },
+  {
+    label: "010 profile_bio",
+    table: "user_profiles",
+    columns: "id, profile_bio",
+    migration: "010_profile_personalization.sql",
+  },
 ];
 
 async function main() {

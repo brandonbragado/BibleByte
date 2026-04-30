@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 
 import { signOutAction } from "@/app/(main)/settings/actions";
+import { CopyrightAttributionControl } from "@/components/settings/copyright-attribution-control";
 import { DeleteAccountSection } from "@/components/settings/delete-account-section";
 import { PreferencesCard } from "@/components/settings/preferences-card";
 import { Button } from "@/components/ui/button";
@@ -44,9 +45,12 @@ export default function SettingsPage() {
           <div className="rounded-xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground ring-1 ring-border/60">
             Translation preference UI will honor publisher licensing workflows—never ship copyrighted text without clearance.
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/profile">Back to profile snapshot</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <CopyrightAttributionControl />
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/profile">Back to profile snapshot</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

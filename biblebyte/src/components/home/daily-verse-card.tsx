@@ -31,9 +31,9 @@ export function DailyVerseCard({ verse, liveScripture }: Props) {
 
   return (
     <Card className="overflow-hidden border-primary/15 shadow-soft">
-      <div className="relative h-[clamp(13rem,52vw,26rem)] max-h-[min(72vh,34rem)] min-h-[13rem] w-full bg-gradient-to-br from-primary/25 via-muted to-gold/15 sm:h-[clamp(14rem,42vw,28rem)] sm:max-h-[min(70vh,36rem)] sm:min-h-[14rem] lg:h-[clamp(15rem,36vw,30rem)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
-        <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-background/85 p-4 text-center shadow-soft backdrop-blur-md sm:inset-x-6 sm:bottom-5 sm:p-5 md:inset-x-8 md:bottom-6 lg:inset-x-10 lg:p-6">
+      <div className="relative flex h-[clamp(13rem,52vw,26rem)] max-h-[min(72vh,34rem)] min-h-[13rem] w-full items-center justify-center bg-gradient-to-br from-primary/25 via-muted to-gold/15 p-4 sm:h-[clamp(14rem,42vw,28rem)] sm:max-h-[min(70vh,36rem)] sm:min-h-[14rem] sm:p-5 md:p-6 lg:h-[clamp(15rem,36vw,30rem)] lg:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
+        <div className="relative z-10 max-h-full min-h-0 w-full overflow-y-auto rounded-2xl bg-background/85 p-4 text-center shadow-soft backdrop-blur-md sm:p-5 md:p-6 lg:p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">Daily verse</p>
           <p className="mx-auto mt-3 max-w-2xl font-display text-lg leading-snug text-foreground whitespace-pre-wrap sm:text-xl lg:text-[1.35rem]">
             {body}

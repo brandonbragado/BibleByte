@@ -63,7 +63,8 @@ export async function generateCompanionBlocks(
 
   const completion = await client.chat.completions.create({
     model: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
-    temperature: 0.65,
+    temperature: 0.55,
+    max_tokens: 600,
     response_format: { type: "json_object" },
     messages,
   });

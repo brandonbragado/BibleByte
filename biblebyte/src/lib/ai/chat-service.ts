@@ -23,6 +23,9 @@ import type { AiChatApiResponse, AiChatMessageDto, AiChatMessageRow } from "@/li
 
 export const HOME_AI_SESSION_TITLE = "BibleByte Home";
 
+/** Max rows loaded for Home companion UI + history (not the model context cap). */
+export const HOME_AI_UI_MESSAGE_LOAD_LIMIT = 200;
+
 export class ChatServiceError extends Error {
   constructor(
     message: string,
@@ -96,8 +99,8 @@ async function completeAssistantReply(
   try {
     const completion = await client.chat.completions.create({
       model,
-      temperature: 0.65,
-      max_tokens: 1_200,
+      temperature: 0.55,
+      max_tokens: 500,
       messages: [{ role: "system", content: systemPrompt }, ...turns],
     });
 
@@ -365,7 +368,7 @@ export async function loadHomeAiChatState(
     .eq("user_id", userId)
     .in("role", ["user", "assistant"])
     .order("created_at", { ascending: true })
-    .limit(80);
+    .limit(HOME_AI_UI_MESSAGE_LOAD_LIMIT);
 
   if (error) {
     console.error(error);

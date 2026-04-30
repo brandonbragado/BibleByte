@@ -36,7 +36,7 @@ export const QUICK_PROMPT_POOL = [
   "Pray with me for my family",
 ] as const;
 
-const VISIBLE_COUNT = 8;
+const VISIBLE_COUNT = 5;
 
 /** Deterministic PRNG for a numeric seed (Fisher–Yates shuffle per slot). */
 function mulberry32(seed: number): () => number {

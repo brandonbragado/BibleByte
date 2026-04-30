@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 
 const MAX_NAME = 80;
 const MAX_PHONE = 32;
+const MAX_BIO = 2000;
+const MAX_MONTHLY_FOCUS = 500;
 
 function sanitizeName(raw: unknown): string {
   const s = String(raw ?? "").trim().replace(/[\u0000-\u001F\u007F]/g, "");
@@ -18,6 +20,14 @@ function sanitizePhone(raw: unknown): string | null {
   if (!s) return null;
   const cleaned = s.replace(/[^\d+\-().\s]/g, "").slice(0, MAX_PHONE);
   return cleaned.length ? cleaned : null;
+}
+
+function sanitizeMultiline(raw: unknown, max: number): string | null {
+  const s = String(raw ?? "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+  if (!s) return null;
+  return s.slice(0, max);
 }
 
 function isValidEmail(s: string): boolean {
@@ -47,6 +57,11 @@ export async function updateProfileIdentity(
   const firstName = sanitizeName(formData.get("first_name"));
   const lastName = sanitizeName(formData.get("last_name"));
   const phone = sanitizePhone(formData.get("phone"));
+  const profileBio = sanitizeMultiline(formData.get("profile_bio"), MAX_BIO);
+  const profileMonthlyFocus = sanitizeMultiline(
+    formData.get("profile_monthly_focus"),
+    MAX_MONTHLY_FOCUS
+  );
   const emailRaw = String(formData.get("email") ?? "").trim().toLowerCase();
 
   if (!firstName) {
@@ -66,16 +81,25 @@ export async function updateProfileIdentity(
       last_name: lastName || null,
       phone,
       display_name: displayName,
+      profile_bio: profileBio,
+      profile_monthly_focus: profileMonthlyFocus,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);
 
   if (profileError) {
     console.error(profileError);
-    if (profileError.message?.includes("first_name") || profileError.code === "42703") {
+    const msg = profileError.message ?? "";
+    if (profileError.code === "42703" || msg.includes("first_name")) {
       return {
         ok: false,
         error: "Database missing profile columns — run supabase/migrations/007_profile_identity.sql.",
+      };
+    }
+    if (msg.includes("profile_bio") || msg.includes("profile_monthly_focus")) {
+      return {
+        ok: false,
+        error: "Database missing profile fields — run supabase/migrations/010_profile_personalization.sql.",
       };
     }
     return { ok: false, error: "Could not save profile." };

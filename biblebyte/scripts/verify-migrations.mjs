@@ -19,6 +19,8 @@ const REQUIRED_ORDER = [
   "006_scripture_license_markers.sql",
   "007_profile_identity.sql",
   "008_chat_messages_text_user.sql",
+  "009_prayer_check_ins.sql",
+  "010_profile_personalization.sql",
 ];
 
 function main() {
